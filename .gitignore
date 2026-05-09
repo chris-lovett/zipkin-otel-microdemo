@@ -1,0 +1,28 @@
+# Binaries
+/frontend
+/catalog
+/cart
+/checkout
+/payment
+/inventory
+
+# Go build artifacts
+*.exe
+*.test
+*.out
+
+# Go workspace
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.local
+
+# Docker
+docker-compose.override.yml

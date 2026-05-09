@@ -1,0 +1,174 @@
+version: "3.9"
+
+networks:
+  app-network:
+    driver: bridge
+
+services:
+  zipkin:
+    image: openzipkin/zipkin:latest
+    ports:
+      - "9411:9411"
+    networks:
+      - app-network
+
+  catalog:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM golang:1.24-alpine AS build
+        WORKDIR /src
+        COPY go.mod go.sum ./
+        RUN go mod download
+        COPY . .
+        RUN go build -o /catalog ./cmd/catalog
+        FROM alpine:3.20
+        COPY --from=build /catalog /catalog
+        ENTRYPOINT ["/catalog"]
+    environment:
+      SERVICE_NAME: catalog
+      PORT: "8081"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+    ports:
+      - "8081:8081"
+    depends_on:
+      - zipkin
+    networks:
+      - app-network
+
+  cart:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM golang:1.24-alpine AS build
+        WORKDIR /src
+        COPY go.mod go.sum ./
+        RUN go mod download
+        COPY . .
+        RUN go build -o /cart ./cmd/cart
+        FROM alpine:3.20
+        COPY --from=build /cart /cart
+        ENTRYPOINT ["/cart"]
+    environment:
+      SERVICE_NAME: cart
+      PORT: "8082"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      CATALOG_URL: http://catalog:8081
+    ports:
+      - "8082:8082"
+    depends_on:
+      - zipkin
+      - catalog
+    networks:
+      - app-network
+
+  inventory:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM golang:1.24-alpine AS build
+        WORKDIR /src
+        COPY go.mod go.sum ./
+        RUN go mod download
+        COPY . .
+        RUN go build -o /inventory ./cmd/inventory
+        FROM alpine:3.20
+        COPY --from=build /inventory /inventory
+        ENTRYPOINT ["/inventory"]
+    environment:
+      SERVICE_NAME: inventory
+      PORT: "8085"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      INVENTORY_CONTENTION_RATE: "0.05"
+    ports:
+      - "8085:8085"
+    depends_on:
+      - zipkin
+    networks:
+      - app-network
+
+  payment:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM golang:1.24-alpine AS build
+        WORKDIR /src
+        COPY go.mod go.sum ./
+        RUN go mod download
+        COPY . .
+        RUN go build -o /payment ./cmd/payment
+        FROM alpine:3.20
+        COPY --from=build /payment /payment
+        ENTRYPOINT ["/payment"]
+    environment:
+      SERVICE_NAME: payment
+      PORT: "8084"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      PAYMENT_FAILURE_RATE: "0.02"
+      PAYMENT_LATENCY_MS: "50"
+    ports:
+      - "8084:8084"
+    depends_on:
+      - zipkin
+    networks:
+      - app-network
+
+  checkout:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM golang:1.24-alpine AS build
+        WORKDIR /src
+        COPY go.mod go.sum ./
+        RUN go mod download
+        COPY . .
+        RUN go build -o /checkout ./cmd/checkout
+        FROM alpine:3.20
+        COPY --from=build /checkout /checkout
+        ENTRYPOINT ["/checkout"]
+    environment:
+      SERVICE_NAME: checkout
+      PORT: "8083"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      CART_URL: http://cart:8082
+      INVENTORY_URL: http://inventory:8085
+      PAYMENT_URL: http://payment:8084
+    ports:
+      - "8083:8083"
+    depends_on:
+      - zipkin
+      - cart
+      - inventory
+      - payment
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM golang:1.24-alpine AS build
+        WORKDIR /src
+        COPY go.mod go.sum ./
+        RUN go mod download
+        COPY . .
+        RUN go build -o /frontend ./cmd/frontend
+        FROM alpine:3.20
+        COPY --from=build /frontend /frontend
+        ENTRYPOINT ["/frontend"]
+    environment:
+      SERVICE_NAME: frontend
+      PORT: "8080"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      CATALOG_URL: http://catalog:8081
+      CART_URL: http://cart:8082
+      CHECKOUT_URL: http://checkout:8083
+    ports:
+      - "8080:8080"
+    depends_on:
+      - zipkin
+      - catalog
+      - cart
+      - checkout
+    networks:
+      - app-network
