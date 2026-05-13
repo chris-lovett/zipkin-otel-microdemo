@@ -47,18 +47,38 @@ A field-demo quality Go microservices application for demonstrating distributed 
 
 ### 1) Build and publish service images
 
-This repository now includes a single multi-stage `Dockerfile` and Make targets for all app services:
+This repository includes a single multi-stage `Dockerfile` and Make targets for all app services.
+
+#### Multi-Architecture Build (Recommended for OpenShift)
+
+Build images for both AMD64 and ARM64 architectures:
 
 ```bash
-# Optional overrides
-export IMAGE_REGISTRY=ghcr.io/<your-org>/zipkin-otel-microdemo
+# Configure registry (default: quay.io/chris_lovett/zipkin-otel-microdemo)
+export IMAGE_REGISTRY=quay.io/<your-org>/zipkin-otel-microdemo
+export IMAGE_TAG=0.1.0
+
+# Build and push multi-arch images
+make build-multiarch
+```
+
+This builds and pushes multi-architecture images supporting:
+- `linux/amd64` (Intel/AMD processors)
+- `linux/arm64` (ARM processors, Apple Silicon)
+
+#### Single Architecture Build
+
+For local development or single-architecture deployments:
+
+```bash
+export IMAGE_REGISTRY=quay.io/<your-org>/zipkin-otel-microdemo
 export IMAGE_TAG=0.1.0
 
 make build-images
 make push-images
 ```
 
-By default this builds/pushes:
+Both methods build/push:
 
 - `${IMAGE_REGISTRY}/frontend:${IMAGE_TAG}`
 - `${IMAGE_REGISTRY}/catalog:${IMAGE_TAG}`
@@ -72,27 +92,47 @@ By default this builds/pushes:
 All runtime/deployment settings are controlled in `charts/zipkin-otel-microdemo/values.yaml`, including:
 
 - image registry/tags
+- imagePullSecrets for private registries
 - service ports and env vars
 - dependency wait behavior
 - OpenShift Route and optional Ingress exposure
 
 If needed, override values inline with `--set` (no environment-specific values files are required).
 
-### 3) Install or upgrade
+### 3) Create namespace and configure image pull secrets (if using private registry)
 
 ```bash
-helm upgrade --install microdemo \
-  ./charts/zipkin-otel-microdemo \
-  --set global.imageRegistry=ghcr.io/<your-org>/zipkin-otel-microdemo \
-  --set services.frontend.image.tag=0.1.0 \
-  --set services.catalog.image.tag=0.1.0 \
-  --set services.cart.image.tag=0.1.0 \
-  --set services.checkout.image.tag=0.1.0 \
-  --set services.payment.image.tag=0.1.0 \
-  --set services.inventory.image.tag=0.1.0
+# Create namespace
+kubectl create namespace tracing-demo
+
+# If using private registry (e.g., Quay.io), create pull secret
+kubectl create secret docker-registry quay-pull \
+  --docker-server=quay.io \
+  --docker-username=<your-username> \
+  --docker-password=<your-password> \
+  -n tracing-demo
+
+# Update values.yaml to reference the secret
+# global:
+#   imagePullSecrets:
+#     - name: quay-pull
 ```
 
-### 4) Access the app
+### 4) Install or upgrade
+
+```bash
+helm upgrade --install zipkin-demo \
+  ./charts/zipkin-otel-microdemo \
+  -n tracing-demo \
+  --set global.imageRegistry=quay.io/<your-org>/zipkin-otel-microdemo
+```
+
+For Consul Service Mesh integration, the chart is pre-configured with:
+- `consul.hashicorp.com/connect-inject: "true"` - Enables automatic sidecar injection
+- `consul.hashicorp.com/transparent-proxy: "true"` - Enables transparent proxy mode
+- Individual ServiceAccounts per service (required for Consul ACL authentication)
+
+### 5) Access the app
 
 With OpenShift Routes enabled (default):
 
@@ -103,7 +143,151 @@ oc get route zipkin
 
 Use the `frontend` route for app traffic and `zipkin` route for trace UI.
 
-### 5) Uninstall
+## Exploring Distributed Traces in Zipkin
+
+### Accessing Zipkin UI
+
+Get the Zipkin route URL:
+```bash
+oc get route zipkin -n tracing-demo
+```
+
+Open the URL in your browser (e.g., `https://zipkin-tracing-demo.apps.rosa.cluster1.6cxo.p3.openshiftapps.com`)
+
+### Generating Trace Data
+
+First, generate some traffic through the frontend:
+
+```bash
+# Get frontend URL
+FRONTEND_URL=$(oc get route frontend -n tracing-demo -o jsonpath='{.spec.host}')
+
+# Browse products (simple trace)
+curl https://$FRONTEND_URL/products
+
+# Get specific product (2-service trace: frontend → catalog)
+curl https://$FRONTEND_URL/products/1
+
+# Add to cart (3-service trace: frontend → cart → catalog)
+curl -X POST https://$FRONTEND_URL/cart/user123/items \
+  -H 'Content-Type: application/json' \
+  -d '{"product_id":"1","quantity":2}'
+
+# Checkout (complex 5-service trace: frontend → checkout → cart → inventory + payment)
+curl -X POST https://$FRONTEND_URL/checkout \
+  -H 'Content-Type: application/json' \
+  -d '{"user_id":"user123"}'
+```
+
+### Zipkin UI Queries
+
+#### 1. View All Recent Traces
+- Click "RUN QUERY" on the main page
+- Shows all traces from the last 15 minutes
+- Each trace represents one request through the system
+
+#### 2. Find Traces by Service
+- **Service Name** dropdown → Select `frontend`
+- Click "RUN QUERY"
+- Shows all traces that passed through the frontend service
+
+#### 3. Find Slow Traces
+- **Min Duration** → Enter `100ms` (or `100000` microseconds)
+- Click "RUN QUERY"
+- Identifies performance bottlenecks
+
+#### 4. Find Checkout Flows
+- **Service Name** → `checkout`
+- Click "RUN QUERY"
+- Shows complete purchase flows through all services
+
+#### 5. Find Traces with Errors
+- **Tags** → Add tag `error=true`
+- Click "RUN QUERY"
+- Shows failed requests (useful when payment failures are injected)
+
+### Understanding Trace Details
+
+Click on any trace to see:
+
+1. **Service Dependency Graph** (top)
+   - Visual representation of service calls
+   - Shows which services communicated
+   - Displays call counts between services
+
+2. **Trace Timeline** (middle)
+   - Waterfall view of all spans
+   - Each bar represents time spent in a service
+   - Nested spans show parent-child relationships
+
+3. **Span Details** (click any span)
+   - **Service name** - Which service created this span
+   - **Operation** - HTTP method and endpoint (e.g., `GET /products`)
+   - **Duration** - Time spent in this span
+   - **Tags** - Metadata like HTTP status, method, URL
+   - **Annotations** - Timing events within the span
+
+### Consul Service Mesh Spans
+
+With Consul Service Mesh enabled, each service call shows **two spans**:
+
+1. **Envoy Ingress Span** (e.g., `ingress catalog`)
+   - Created by the Consul sidecar proxy
+   - Shows time spent in the Envoy proxy
+   - Includes mTLS handshake overhead
+
+2. **Application Span** (e.g., `GET /products`)
+   - Created by the application code
+   - Shows actual business logic execution time
+   - Child of the Envoy span
+
+This dual-span pattern helps identify:
+- Network/proxy overhead vs application logic time
+- mTLS performance impact
+- Service mesh routing behavior
+
+### Example Trace Patterns
+
+**Simple Product Browse:**
+```
+frontend (GET /products)
+  └─> catalog (GET /products)
+```
+
+**Add to Cart:**
+```
+frontend (POST /cart/{user}/items)
+  └─> cart (POST /items)
+      └─> catalog (GET /products/{id})
+```
+
+**Complete Checkout:**
+```
+frontend (POST /checkout)
+  └─> checkout (POST /checkout)
+      ├─> cart (GET /cart/{user})
+      ├─> inventory (POST /reserve)
+      └─> payment (POST /process)
+```
+
+### Tracing Implementation Details
+
+All services use `zipkin-go` library with:
+- **HTTP Server Middleware** - Automatically creates spans for incoming requests
+- **HTTP Client Middleware** - Propagates trace context to downstream services
+- **B3 Propagation** - Compatible with Consul/Envoy tracing
+- **100% Sampling** - All requests are traced (configurable via `SAMPLE_RATE`)
+
+Tracing is enabled on all HTTP endpoints:
+- `GET /products` - List products
+- `GET /products/{id}` - Get product details
+- `POST /cart/{user}/items` - Add to cart
+- `GET /cart/{user}` - Get cart contents
+- `POST /checkout` - Process checkout
+- `POST /inventory/reserve` - Reserve inventory
+- `POST /payment/process` - Process payment
+
+### 6) Uninstall
 
 ```bash
 helm uninstall microdemo
@@ -182,21 +366,96 @@ docker-compose up
 
 You can also run each service directly with `go run` as before.
 
-## Consul Enterprise Service Mesh Integration
+## Consul Service Mesh Integration
 
-### Envoy proxy spans and app spans
+This application is designed to work seamlessly with Consul Service Mesh on OpenShift/Kubernetes.
 
-When deployed behind Consul Connect (Envoy), each service receives two spans per request:
+### Automatic Sidecar Injection
 
-1. **Envoy ingress span** – created by the sidecar proxy for inbound traffic.
-2. **App span** – created by `pkg/tracing` server middleware.
+The Helm chart includes Consul annotations for automatic sidecar injection:
 
-Because both Envoy and zipkin-go respect **B3 single/multi-header propagation**, the app span automatically becomes a child of the Envoy ingress span.
+```yaml
+annotations:
+  consul.hashicorp.com/connect-inject: "true"
+  consul.hashicorp.com/transparent-proxy: "true"
+```
 
-### B3 propagation
+When deployed to a namespace with Consul Service Mesh enabled, each pod automatically receives:
+- **Consul Dataplane sidecar** - Envoy proxy for service-to-service communication
+- **Init container** - Configures iptables for transparent proxy mode
 
-All inter-service calls use `zipkin-go/middleware/http` which injects **B3 multi-headers** (`X-B3-TraceId`, `X-B3-SpanId`, `X-B3-ParentSpanId`, `X-B3-Sampled`).
+### Service Registration
 
-### Sampling configuration
+Each service is automatically registered in Consul with:
+- Service name matching the Kubernetes service
+- Health checks integrated with Kubernetes readiness/liveness probes
+- Sidecar proxy registration for mTLS communication
 
-The `SAMPLE_RATE` environment variable controls the application-level sampler.
+Verify registration:
+```bash
+kubectl exec -it consul-server-0 -n consul -- consul catalog services
+```
+
+### mTLS and Security
+
+All service-to-service communication is automatically encrypted with mutual TLS:
+- Certificates managed by Consul
+- Automatic certificate rotation
+- No application code changes required
+- Zero-trust security model
+
+### Distributed Tracing with Envoy
+
+When deployed with Consul Service Mesh, each request generates two spans:
+
+1. **Envoy ingress span** – Created by the sidecar proxy for inbound traffic
+2. **Application span** – Created by `pkg/tracing` server middleware
+
+Both Envoy and the application respect **B3 propagation headers**, ensuring the application span becomes a child of the Envoy span in the trace hierarchy.
+
+### B3 Propagation
+
+All inter-service calls use `zipkin-go/middleware/http` which injects **B3 multi-headers**:
+- `X-B3-TraceId` - Unique trace identifier
+- `X-B3-SpanId` - Current span identifier
+- `X-B3-ParentSpanId` - Parent span identifier
+- `X-B3-Sampled` - Sampling decision
+
+This ensures complete trace context propagation through both Envoy proxies and application code.
+
+### Sampling Configuration
+
+The `SAMPLE_RATE` environment variable (default: `1.0`) controls application-level sampling. Set to `1.0` for 100% sampling in demo environments.
+
+### NetworkPolicy Considerations
+
+When deploying with NetworkPolicies enabled, ensure:
+- Pods can reach Consul server (ports 8501, 8502, 8301, 8300)
+- DNS resolution is allowed (port 53/5353 to openshift-dns namespace)
+- Inter-service communication within namespace is permitted
+
+Example NetworkPolicy files are included in the repository for reference.
+
+### Verifying Consul Integration
+
+Check that all pods have 2/2 containers ready (app + sidecar):
+```bash
+kubectl get pods -n tracing-demo
+```
+
+Expected output:
+```
+NAME                         READY   STATUS    RESTARTS   AGE
+cart-xxx                     2/2     Running   0          5m
+catalog-xxx                  2/2     Running   0          5m
+checkout-xxx                 2/2     Running   0          5m
+frontend-xxx                 2/2     Running   0          5m
+inventory-xxx                2/2     Running   0          5m
+payment-xxx                  2/2     Running   0          5m
+zipkin-xxx                   2/2     Running   0          5m
+```
+
+View service mesh topology in Consul UI or check service registrations:
+```bash
+kubectl exec -it consul-server-0 -n consul -- consul catalog services
+```
