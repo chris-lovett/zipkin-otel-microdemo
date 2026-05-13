@@ -38,7 +38,7 @@ spec:
             - /bin/sh
             - -c
             - >-
-              until curl -fsS http://{{ $dep }}:{{ if eq $dep "zipkin" }}{{ $.Values.zipkin.service.port }}{{ else }}{{ (index $.Values.services $dep).service.port }}{{ end }}/health >/dev/null; do
+              until curl -fsS http://{{ $dep }}:{{ include "zipkin-otel-microdemo.dependencyPort" (dict "root" $ "dep" $dep) }}/health >/dev/null; do
               echo "waiting for {{ $dep }}";
               sleep 2;
               done

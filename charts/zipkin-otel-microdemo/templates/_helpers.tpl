@@ -28,3 +28,13 @@
 {{ printf "%s:%s" $repo $tag }}
 {{- end -}}
 {{- end -}}
+
+{{- define "zipkin-otel-microdemo.dependencyPort" -}}
+{{- $root := .root -}}
+{{- $dep := .dep -}}
+{{- if eq $dep "zipkin" -}}
+{{- $root.Values.zipkin.service.port -}}
+{{- else -}}
+{{- (index $root.Values.services $dep).service.port -}}
+{{- end -}}
+{{- end -}}
