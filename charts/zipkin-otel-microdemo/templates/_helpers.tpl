@@ -21,7 +21,7 @@
 {{- define "zipkin-otel-microdemo.appImage" -}}
 {{- $registry := .Values.global.imageRegistry -}}
 {{- $repo := .repository -}}
-{{- $tag := .tag | default "latest" -}}
+{{- $tag := .tag -}}
 {{- if $registry -}}
 {{ printf "%s/%s:%s" $registry $repo $tag }}
 {{- else -}}
