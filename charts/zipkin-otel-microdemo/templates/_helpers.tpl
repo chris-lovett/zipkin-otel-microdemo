@@ -34,7 +34,9 @@
 {{- $dep := .dep -}}
 {{- if eq $dep "zipkin" -}}
 {{- $root.Values.zipkin.service.port -}}
-{{- else -}}
+{{- else if hasKey $root.Values.services $dep -}}
 {{- (index $root.Values.services $dep).service.port -}}
+{{- else -}}
+{{- fail (printf "unknown dependency %q in services.*.dependsOn; expected \"zipkin\" or a key under services" $dep) -}}
 {{- end -}}
 {{- end -}}
