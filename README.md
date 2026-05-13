@@ -51,7 +51,7 @@ This repository now includes a single multi-stage `Dockerfile` and Make targets 
 
 ```bash
 # Optional overrides
-export IMAGE_REGISTRY=quay.io/<your-org>/zipkin-otel-microdemo
+export IMAGE_REGISTRY=ghcr.io/<your-org>/zipkin-otel-microdemo
 export IMAGE_TAG=0.1.0
 
 make build-images
@@ -83,7 +83,7 @@ If needed, override values inline with `--set` (no environment-specific values f
 ```bash
 helm upgrade --install microdemo \
   ./charts/zipkin-otel-microdemo \
-  --set global.imageRegistry=quay.io/<your-org>/zipkin-otel-microdemo \
+  --set global.imageRegistry=ghcr.io/<your-org>/zipkin-otel-microdemo \
   --set services.frontend.image.tag=0.1.0 \
   --set services.catalog.image.tag=0.1.0 \
   --set services.cart.image.tag=0.1.0 \
@@ -145,12 +145,17 @@ curl -X POST http://<payment-host>/admin/config \
   -d '{"failure_rate":0.3,"latency_ms":50}'
 ```
 
-Or set these values in `charts/zipkin-otel-microdemo/values.yaml`:
+Set these values under each service's `env` section in `charts/zipkin-otel-microdemo/values.yaml`:
 
-```bash
-PAYMENT_FAILURE_RATE=0.3
-PAYMENT_LATENCY_MS=500
-INVENTORY_CONTENTION_RATE=0.2
+```yaml
+services:
+  payment:
+    env:
+      PAYMENT_FAILURE_RATE: "0.3"
+      PAYMENT_LATENCY_MS: "500"
+  inventory:
+    env:
+      INVENTORY_CONTENTION_RATE: "0.2"
 ```
 
 ## Load Testing with k6
