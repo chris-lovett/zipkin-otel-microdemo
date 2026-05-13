@@ -1,0 +1,164 @@
+global:
+  imageRegistry: ghcr.io/chris-lovett/zipkin-otel-microdemo
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  name: ""
+
+podSecurityContext: {}
+
+appSecurityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+waitForDependencies:
+  enabled: true
+  image: busybox:1.36
+  imagePullPolicy: IfNotPresent
+
+zipkin:
+  enabled: true
+  image:
+    repository: openzipkin/zipkin
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 9411
+  resources: {}
+  env: {}
+
+services:
+  frontend:
+    replicas: 1
+    image:
+      repository: frontend
+      tag: latest
+    service:
+      type: ClusterIP
+      port: 8080
+    dependsOn: [zipkin, catalog, cart, checkout]
+    env:
+      SERVICE_NAME: frontend
+      PORT: "8080"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      CATALOG_URL: http://catalog:8081
+      CART_URL: http://cart:8082
+      CHECKOUT_URL: http://checkout:8083
+    resources: {}
+
+  catalog:
+    replicas: 1
+    image:
+      repository: catalog
+      tag: latest
+    service:
+      type: ClusterIP
+      port: 8081
+    dependsOn: [zipkin]
+    env:
+      SERVICE_NAME: catalog
+      PORT: "8081"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+    resources: {}
+
+  cart:
+    replicas: 1
+    image:
+      repository: cart
+      tag: latest
+    service:
+      type: ClusterIP
+      port: 8082
+    dependsOn: [zipkin, catalog]
+    env:
+      SERVICE_NAME: cart
+      PORT: "8082"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      CATALOG_URL: http://catalog:8081
+    resources: {}
+
+  checkout:
+    replicas: 1
+    image:
+      repository: checkout
+      tag: latest
+    service:
+      type: ClusterIP
+      port: 8083
+    dependsOn: [zipkin, cart, inventory, payment]
+    env:
+      SERVICE_NAME: checkout
+      PORT: "8083"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      CART_URL: http://cart:8082
+      INVENTORY_URL: http://inventory:8085
+      PAYMENT_URL: http://payment:8084
+    resources: {}
+
+  payment:
+    replicas: 1
+    image:
+      repository: payment
+      tag: latest
+    service:
+      type: ClusterIP
+      port: 8084
+    dependsOn: [zipkin]
+    env:
+      SERVICE_NAME: payment
+      PORT: "8084"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      PAYMENT_FAILURE_RATE: "0.02"
+      PAYMENT_LATENCY_MS: "50"
+    resources: {}
+
+  inventory:
+    replicas: 1
+    image:
+      repository: inventory
+      tag: latest
+    service:
+      type: ClusterIP
+      port: 8085
+    dependsOn: [zipkin]
+    env:
+      SERVICE_NAME: inventory
+      PORT: "8085"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      INVENTORY_CONTENTION_RATE: "0.05"
+    resources: {}
+
+openshift:
+  routes:
+    enabled: true
+    frontend:
+      enabled: true
+      host: ""
+      tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
+    zipkin:
+      enabled: true
+      host: ""
+      tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  frontend:
+    host: ""
+    path: /
+    pathType: Prefix
+  zipkin:
+    enabled: true
+    host: ""
+    path: /
+    pathType: Prefix

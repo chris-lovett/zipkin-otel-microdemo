@@ -1,6 +1,6 @@
 # zipkin-otel-microdemo
 
-A field-demo quality Go microservices application for demonstrating distributed tracing with Zipkin, designed to run on Consul Enterprise Service Mesh.
+A field-demo quality Go microservices application for demonstrating distributed tracing with Zipkin, now packaged for Kubernetes/OpenShift using a single Helm chart.
 
 ## Architecture
 
@@ -34,6 +34,80 @@ A field-demo quality Go microservices application for demonstrating distributed 
 | checkout  | 8083 | Purchase orchestrator                    |
 | payment   | 8084 | Payment processing (injectable faults)   |
 | inventory | 8085 | Stock management (contention simulation) |
+| zipkin    | 9411 | Trace collector and UI                   |
+
+## Deploying to OpenShift with Helm
+
+### Prerequisites
+
+- OpenShift cluster access (`oc login`)
+- Helm 3
+- Docker or Podman (for image builds)
+- Access to a container registry
+
+### 1) Build and publish service images
+
+This repository now includes a single multi-stage `Dockerfile` and Make targets for all app services:
+
+```bash
+# Optional overrides
+export IMAGE_REGISTRY=quay.io/<your-org>/zipkin-otel-microdemo
+export IMAGE_TAG=latest
+
+make build-images
+make push-images
+```
+
+By default this builds/pushes:
+
+- `${IMAGE_REGISTRY}/frontend:${IMAGE_TAG}`
+- `${IMAGE_REGISTRY}/catalog:${IMAGE_TAG}`
+- `${IMAGE_REGISTRY}/cart:${IMAGE_TAG}`
+- `${IMAGE_REGISTRY}/checkout:${IMAGE_TAG}`
+- `${IMAGE_REGISTRY}/payment:${IMAGE_TAG}`
+- `${IMAGE_REGISTRY}/inventory:${IMAGE_TAG}`
+
+### 2) Configure runtime/deployment via `values.yaml`
+
+All runtime/deployment settings are controlled in `charts/zipkin-otel-microdemo/values.yaml`, including:
+
+- image registry/tags
+- service ports and env vars
+- dependency wait behavior
+- OpenShift Route and optional Ingress exposure
+
+If needed, override values inline with `--set` (no environment-specific values files are required).
+
+### 3) Install or upgrade
+
+```bash
+helm upgrade --install microdemo \
+  /home/runner/work/zipkin-otel-microdemo/zipkin-otel-microdemo/charts/zipkin-otel-microdemo \
+  --set global.imageRegistry=quay.io/<your-org>/zipkin-otel-microdemo \
+  --set services.frontend.image.tag=latest \
+  --set services.catalog.image.tag=latest \
+  --set services.cart.image.tag=latest \
+  --set services.checkout.image.tag=latest \
+  --set services.payment.image.tag=latest \
+  --set services.inventory.image.tag=latest
+```
+
+### 4) Access the app
+
+With OpenShift Routes enabled (default):
+
+```bash
+oc get route frontend
+oc get route zipkin
+```
+
+Use the `frontend` route for app traffic and `zipkin` route for trace UI.
+
+### 5) Uninstall
+
+```bash
+helm uninstall microdemo
+```
 
 ## Request Flows
 
@@ -41,123 +115,48 @@ A field-demo quality Go microservices application for demonstrating distributed 
 2. **Add to cart**: `frontend → cart → catalog`
 3. **Checkout**: `frontend → checkout → cart → inventory → payment`
 
-## Running Locally
-
-### Prerequisites
-
-- Go 1.21+
-- Docker and Docker Compose
-- (Optional) k6 for load testing
-
-### Quick Start
-
-```bash
-docker-compose up
-```
-
-### Build and run without Docker
-
-```bash
-go build ./...
-
-SERVICE_NAME=catalog  go run ./cmd/catalog &
-SERVICE_NAME=cart     CATALOG_URL=http://localhost:8081 go run ./cmd/cart &
-SERVICE_NAME=inventory go run ./cmd/inventory &
-SERVICE_NAME=payment  go run ./cmd/payment &
-SERVICE_NAME=checkout CART_URL=http://localhost:8082 \
-                      INVENTORY_URL=http://localhost:8085 \
-                      PAYMENT_URL=http://localhost:8084 \
-                      go run ./cmd/checkout &
-SERVICE_NAME=frontend CATALOG_URL=http://localhost:8081 \
-                      CART_URL=http://localhost:8082 \
-                      CHECKOUT_URL=http://localhost:8083 \
-                      go run ./cmd/frontend
-```
-
-### Viewing Traces
-
-Open http://localhost:9411 for the Zipkin UI.
-
-## Environment Variables
+## Runtime Configuration
 
 ### Common to all services
 
-| Variable      | Default                                    | Description                     |
-|---------------|--------------------------------------------|---------------------------------|
-| `SERVICE_NAME`| (binary name)                              | Zipkin local service name       |
-| `PORT`        | see per-service default                    | Listening port                  |
-| `ZIPKIN_URL`  | `http://localhost:9411/api/v2/spans`       | Zipkin HTTP reporter endpoint   |
-| `SAMPLE_RATE` | `1.0`                                      | Trace sample rate (0.0 – 1.0)  |
+| Variable      | Default (chart)                           | Description                     |
+|---------------|-------------------------------------------|---------------------------------|
+| `SERVICE_NAME`| service key from `values.yaml`            | Zipkin local service name       |
+| `PORT`        | per-service value from `values.yaml`      | Listening port                  |
+| `ZIPKIN_URL`  | `http://zipkin:9411/api/v2/spans`         | Zipkin HTTP reporter endpoint   |
+| `SAMPLE_RATE` | `1.0`                                     | Trace sample rate (0.0 – 1.0)  |
 
-### frontend
+### Service-specific defaults
 
-| Variable       | Default                   |
-|----------------|---------------------------|
-| `CATALOG_URL`  | `http://localhost:8081`   |
-| `CART_URL`     | `http://localhost:8082`   |
-| `CHECKOUT_URL` | `http://localhost:8083`   |
+The chart's `values.yaml` includes the same compose-era defaults for:
 
-### cart
-
-| Variable      | Default                  |
-|---------------|--------------------------|
-| `CATALOG_URL` | `http://localhost:8081`  |
-
-### checkout
-
-| Variable        | Default                  |
-|-----------------|--------------------------|
-| `CART_URL`      | `http://localhost:8082`  |
-| `INVENTORY_URL` | `http://localhost:8085`  |
-| `PAYMENT_URL`   | `http://localhost:8084`  |
-
-### payment
-
-| Variable               | Default | Description                                |
-|------------------------|---------|--------------------------------------------|
-| `PAYMENT_FAILURE_RATE` | `0.02`  | Fraction of requests to decline (0–1)      |
-| `PAYMENT_LATENCY_MS`   | `50`    | Mean extra latency in ms (±30% jitter)     |
-
-### inventory
-
-| Variable                    | Default | Description                               |
-|-----------------------------|---------|-------------------------------------------|
-| `INVENTORY_CONTENTION_RATE` | `0.05`  | Fraction of reservations to fail (0–1)    |
+- `CATALOG_URL`, `CART_URL`, `CHECKOUT_URL`
+- `INVENTORY_URL`, `PAYMENT_URL`
+- `PAYMENT_FAILURE_RATE`, `PAYMENT_LATENCY_MS`
+- `INVENTORY_CONTENTION_RATE`
 
 ## Demo Controls
 
-Inject faults at runtime without restarting services:
+Inject payment faults at runtime:
 
 ```bash
-# 30% payment failures
-curl -X POST http://localhost:8084/admin/config \
+curl -X POST http://<payment-host>/admin/config \
   -H 'Content-Type: application/json' \
   -d '{"failure_rate":0.3,"latency_ms":50}'
-
-# Slow payment simulation (500 ms mean)
-curl -X POST http://localhost:8084/admin/config \
-  -H 'Content-Type: application/json' \
-  -d '{"failure_rate":0.02,"latency_ms":500}'
 ```
 
-Or set via environment variables before starting:
+Or set these values in `charts/zipkin-otel-microdemo/values.yaml`:
 
 ```bash
-PAYMENT_FAILURE_RATE=0.3       # 30% payment failures
-PAYMENT_LATENCY_MS=500         # slow payments
-INVENTORY_CONTENTION_RATE=0.2  # frequent stock issues
+PAYMENT_FAILURE_RATE=0.3
+PAYMENT_LATENCY_MS=500
+INVENTORY_CONTENTION_RATE=0.2
 ```
 
 ## Load Testing with k6
 
 ```bash
-k6 run loadtest/k6/script.js
-```
-
-Or against a specific target:
-
-```bash
-k6 run -e BASE_URL=http://localhost:8080 loadtest/k6/script.js
+k6 run -e BASE_URL=https://<frontend-route-host> loadtest/k6/script.js
 ```
 
 The script runs three weighted scenarios:
@@ -168,6 +167,16 @@ The script runs three weighted scenarios:
 | Add to cart  | 25%    | `GET /products` → `POST /cart/{user}/items`   |
 | Checkout     | 20%    | Add items → `POST /checkout`                  |
 
+## Local Development (optional)
+
+Docker Compose remains available for local-only workflows:
+
+```bash
+docker-compose up
+```
+
+You can also run each service directly with `go run` as before.
+
 ## Consul Enterprise Service Mesh Integration
 
 ### Envoy proxy spans and app spans
@@ -177,17 +186,12 @@ When deployed behind Consul Connect (Envoy), each service receives two spans per
 1. **Envoy ingress span** – created by the sidecar proxy for inbound traffic.
 2. **App span** – created by `pkg/tracing` server middleware.
 
-Because both Envoy and zipkin-go respect **B3 single/multi-header propagation**, the app span automatically becomes a child of the Envoy ingress span. The resulting trace shows both infrastructure-level (proxy) and application-level timing in a single Zipkin trace.
+Because both Envoy and zipkin-go respect **B3 single/multi-header propagation**, the app span automatically becomes a child of the Envoy ingress span.
 
 ### B3 propagation
 
-All inter-service calls use `zipkin-go/middleware/http` which injects **B3 multi-headers** (`X-B3-TraceId`, `X-B3-SpanId`, `X-B3-ParentSpanId`, `X-B3-Sampled`). Envoy's default Zipkin tracing configuration also uses B3 multi-headers, so no additional translation is needed.
+All inter-service calls use `zipkin-go/middleware/http` which injects **B3 multi-headers** (`X-B3-TraceId`, `X-B3-SpanId`, `X-B3-ParentSpanId`, `X-B3-Sampled`).
 
 ### Sampling configuration
 
-The `SAMPLE_RATE` environment variable controls the application-level sampler. When running behind Envoy:
-
-- Set `SAMPLE_RATE=1.0` (head-based: sample everything) – let Envoy or Consul control the sampling decision upstream.
-- Set `SAMPLE_RATE=0.1` for 10% sampling in high-traffic environments.
-
-The application respects the `X-B3-Sampled: 0` header: if the upstream proxy decides not to sample, zipkin-go will also not report spans.
+The `SAMPLE_RATE` environment variable controls the application-level sampler.
