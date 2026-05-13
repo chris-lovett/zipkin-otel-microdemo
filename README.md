@@ -52,7 +52,7 @@ This repository now includes a single multi-stage `Dockerfile` and Make targets 
 ```bash
 # Optional overrides
 export IMAGE_REGISTRY=quay.io/<your-org>/zipkin-otel-microdemo
-export IMAGE_TAG=latest
+export IMAGE_TAG=0.1.0
 
 make build-images
 make push-images
@@ -82,14 +82,14 @@ If needed, override values inline with `--set` (no environment-specific values f
 
 ```bash
 helm upgrade --install microdemo \
-  /home/runner/work/zipkin-otel-microdemo/zipkin-otel-microdemo/charts/zipkin-otel-microdemo \
+  ./charts/zipkin-otel-microdemo \
   --set global.imageRegistry=quay.io/<your-org>/zipkin-otel-microdemo \
-  --set services.frontend.image.tag=latest \
-  --set services.catalog.image.tag=latest \
-  --set services.cart.image.tag=latest \
-  --set services.checkout.image.tag=latest \
-  --set services.payment.image.tag=latest \
-  --set services.inventory.image.tag=latest
+  --set services.frontend.image.tag=0.1.0 \
+  --set services.catalog.image.tag=0.1.0 \
+  --set services.cart.image.tag=0.1.0 \
+  --set services.checkout.image.tag=0.1.0 \
+  --set services.payment.image.tag=0.1.0 \
+  --set services.inventory.image.tag=0.1.0
 ```
 
 ### 4) Access the app
