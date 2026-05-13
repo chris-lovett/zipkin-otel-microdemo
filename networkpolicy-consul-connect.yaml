@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-to-consul-server
+  namespace: tracing-demo
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  # Allow DNS resolution to OpenShift DNS
+  - ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+    - port: 5353
+      protocol: UDP
+    - port: 5353
+      protocol: TCP
+    to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+  # Allow communication to Consul server for Connect injection
+  - ports:
+    - port: 8501
+      protocol: TCP
+    - port: 8502
+      protocol: TCP
+    - port: 8301
+      protocol: TCP
+    - port: 8300
+      protocol: TCP
+    to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: consul
+      podSelector:
+        matchLabels:
+          app: consul
+          component: server
+  # Allow communication within the same namespace (for app-to-app traffic)
+  - to:
+    - podSelector: {}
+
+# Made with Bob

@@ -1,0 +1,51 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: consul-connect-injector-egress
+  namespace: consul
+spec:
+  podSelector:
+    matchLabels:
+      app: consul
+      component: connect-injector
+  policyTypes:
+  - Egress
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+    ports:
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Allow access to Kubernetes API server
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow access to Consul server in same namespace
+  - to:
+    - podSelector:
+        matchLabels:
+          app: consul
+          component: server
+    ports:
+    - protocol: TCP
+      port: 8501
+    - protocol: TCP
+      port: 8502
+    - protocol: TCP
+      port: 8301
+    - protocol: TCP
+      port: 8300
+  # Allow all egress within consul namespace
+  - to:
+    - podSelector: {}
+
+# Made with Bob

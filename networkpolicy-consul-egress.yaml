@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-consul-webhook-egress
+  namespace: consul
+spec:
+  podSelector:
+    matchLabels:
+      component: connect-injector
+  policyTypes:
+  - Egress
+  - Ingress
+  ingress:
+  # Allow incoming webhook requests from API server
+  - {}
+  egress:
+  # Allow DNS resolution
+  - ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+    - port: 5353
+      protocol: UDP
+    - port: 5353
+      protocol: TCP
+    to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+  # Allow communication to Consul server within same namespace
+  - ports:
+    - protocol: TCP
+      port: 8501
+    - protocol: TCP
+      port: 8502
+    - protocol: TCP
+      port: 8301
+    - protocol: TCP
+      port: 8300
+    to:
+    - podSelector:
+        matchLabels:
+          app: consul
+          component: server
+
+# Made with Bob

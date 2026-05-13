@@ -1,7 +1,8 @@
 global:
-  imageRegistry: ghcr.io/chris-lovett/zipkin-otel-microdemo
+  imageRegistry: quay.io/chris_lovett/zipkin-otel-microdemo
   imagePullPolicy: IfNotPresent
-  imagePullSecrets: []
+  imagePullSecrets:
+    - name: quay-pull
 
 serviceAccount:
   create: true

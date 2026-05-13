@@ -19,7 +19,7 @@ spec:
         app.kubernetes.io/name: {{ $name }}
         app.kubernetes.io/instance: {{ $.Release.Name }}
     spec:
-      serviceAccountName: {{ include "zipkin-otel-microdemo.serviceAccountName" $ }}
+      serviceAccountName: {{ $name }}
       {{- with $.Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
