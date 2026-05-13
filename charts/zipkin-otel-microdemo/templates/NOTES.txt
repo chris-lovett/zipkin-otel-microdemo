@@ -1,0 +1,9 @@
+1. Frontend service (internal):
+   kubectl get svc frontend
+
+2. OpenShift routes (if enabled):
+   kubectl get route frontend
+   kubectl get route zipkin
+
+3. Ingress resources (if enabled):
+   kubectl get ingress frontend

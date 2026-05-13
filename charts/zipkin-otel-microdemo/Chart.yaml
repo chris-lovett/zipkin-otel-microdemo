@@ -1,0 +1,6 @@
+apiVersion: v2
+name: zipkin-otel-microdemo
+description: Helm chart for the zipkin-otel-microdemo microservices application on Kubernetes/OpenShift
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
