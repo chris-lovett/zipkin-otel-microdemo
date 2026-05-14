@@ -43,6 +43,8 @@ services:
       type: ClusterIP
       port: 8080
     dependsOn: [zipkin, catalog, cart, checkout]
+    # Consul Service Mesh annotations for topology graph
+    consulUpstreams: "catalog:8081,cart:8082,checkout:8083"
     env:
       SERVICE_NAME: frontend
       PORT: "8080"
@@ -61,6 +63,7 @@ services:
       type: ClusterIP
       port: 8081
     dependsOn: [zipkin]
+    # Leaf service - no upstreams
     env:
       SERVICE_NAME: catalog
       PORT: "8081"
@@ -76,6 +79,8 @@ services:
       type: ClusterIP
       port: 8082
     dependsOn: [zipkin, catalog]
+    # Consul Service Mesh annotations for topology graph
+    consulUpstreams: "catalog:8081"
     env:
       SERVICE_NAME: cart
       PORT: "8082"
@@ -92,6 +97,8 @@ services:
       type: ClusterIP
       port: 8083
     dependsOn: [zipkin, cart, inventory, payment]
+    # Consul Service Mesh annotations for topology graph
+    consulUpstreams: "cart:8082,inventory:8085,payment:8084"
     env:
       SERVICE_NAME: checkout
       PORT: "8083"
@@ -110,6 +117,7 @@ services:
       type: ClusterIP
       port: 8084
     dependsOn: [zipkin]
+    # Leaf service - no upstreams
     env:
       SERVICE_NAME: payment
       PORT: "8084"
@@ -127,6 +135,7 @@ services:
       type: ClusterIP
       port: 8085
     dependsOn: [zipkin]
+    # Leaf service - no upstreams
     env:
       SERVICE_NAME: inventory
       PORT: "8085"

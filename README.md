@@ -130,7 +130,10 @@ helm upgrade --install zipkin-demo \
 For Consul Service Mesh integration, the chart is pre-configured with:
 - `consul.hashicorp.com/connect-inject: "true"` - Enables automatic sidecar injection
 - `consul.hashicorp.com/transparent-proxy: "true"` - Enables transparent proxy mode
+- `consul.hashicorp.com/connect-service-upstreams` - Explicit upstream declarations for topology graph
 - Individual ServiceAccounts per service (required for Consul ACL authentication)
+
+**📖 For detailed Consul topology graph configuration and verification, see [CONSUL_TOPOLOGY.md](CONSUL_TOPOLOGY.md)**
 
 ### 5) Access the app
 

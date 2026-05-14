@@ -18,6 +18,12 @@ spec:
       labels:
         app.kubernetes.io/name: {{ $name }}
         app.kubernetes.io/instance: {{ $.Release.Name }}
+      annotations:
+        consul.hashicorp.com/connect-inject: "true"
+        consul.hashicorp.com/transparent-proxy: "true"
+        {{- if $svc.consulUpstreams }}
+        consul.hashicorp.com/connect-service-upstreams: {{ $svc.consulUpstreams | quote }}
+        {{- end }}
     spec:
       serviceAccountName: {{ $name }}
       {{- with $.Values.global.imagePullSecrets }}
