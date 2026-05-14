@@ -156,7 +156,9 @@ Open the URL in your browser (e.g., `https://zipkin-tracing-demo.apps.rosa.clust
 
 ### Generating Trace Data
 
-First, generate some traffic through the frontend:
+#### Quick Manual Tests
+
+Generate individual traces with curl:
 
 ```bash
 # Get frontend URL
@@ -178,6 +180,40 @@ curl -X POST https://$FRONTEND_URL/checkout \
   -H 'Content-Type: application/json' \
   -d '{"user_id":"user123"}'
 ```
+
+#### Load Testing Tools
+
+For generating more interesting distributed traces, use the included load testing tools:
+
+**Simple Bash Load Generator** (no dependencies):
+```bash
+cd loadtest
+./simple-load.sh
+```
+
+**Advanced Python Load Generator** (with scenarios and statistics):
+```bash
+cd loadtest
+# Mixed traffic (default)
+./advanced-load.py
+
+# Browse-heavy traffic
+./advanced-load.py --scenario browse --users 10 --duration 120
+
+# Purchase-heavy traffic
+./advanced-load.py --scenario buy --users 5 --duration 90
+
+# Spike traffic
+./advanced-load.py --scenario spike --users 20 --duration 30
+```
+
+**k6 Professional Load Testing**:
+```bash
+cd loadtest
+k6 run -e BASE_URL=https://frontend-tracing-demo.apps.rosa.cluster1.6cxo.p3.openshiftapps.com k6/script.js
+```
+
+See [`loadtest/README.md`](loadtest/README.md) for detailed documentation on all load testing tools, scenarios, and usage examples.
 
 ### Zipkin UI Queries
 
