@@ -1,0 +1,99 @@
+---
+apiVersion: consul.hashicorp.com/v1alpha1
+kind: ServiceIntentions
+metadata:
+  name: frontend
+  namespace: tracing-demo
+spec:
+  destination:
+    name: frontend
+  sources:
+    - name: "*"
+      action: allow
+      description: "Allow all services to call frontend (entry point)"
+---
+apiVersion: consul.hashicorp.com/v1alpha1
+kind: ServiceIntentions
+metadata:
+  name: catalog
+  namespace: tracing-demo
+spec:
+  destination:
+    name: catalog
+  sources:
+    - name: frontend
+      action: allow
+      description: "Allow frontend to browse catalog"
+    - name: cart
+      action: allow
+      description: "Allow cart to check catalog inventory"
+---
+apiVersion: consul.hashicorp.com/v1alpha1
+kind: ServiceIntentions
+metadata:
+  name: cart
+  namespace: tracing-demo
+spec:
+  destination:
+    name: cart
+  sources:
+    - name: frontend
+      action: allow
+      description: "Allow frontend to manage cart"
+    - name: checkout
+      action: allow
+      description: "Allow checkout to read cart contents"
+---
+apiVersion: consul.hashicorp.com/v1alpha1
+kind: ServiceIntentions
+metadata:
+  name: checkout
+  namespace: tracing-demo
+spec:
+  destination:
+    name: checkout
+  sources:
+    - name: frontend
+      action: allow
+      description: "Allow frontend to initiate checkout"
+---
+apiVersion: consul.hashicorp.com/v1alpha1
+kind: ServiceIntentions
+metadata:
+  name: payment
+  namespace: tracing-demo
+spec:
+  destination:
+    name: payment
+  sources:
+    - name: checkout
+      action: allow
+      description: "Allow checkout to process payments"
+---
+apiVersion: consul.hashicorp.com/v1alpha1
+kind: ServiceIntentions
+metadata:
+  name: inventory
+  namespace: tracing-demo
+spec:
+  destination:
+    name: inventory
+  sources:
+    - name: checkout
+      action: allow
+      description: "Allow checkout to reserve inventory"
+---
+apiVersion: consul.hashicorp.com/v1alpha1
+kind: ServiceIntentions
+metadata:
+  name: zipkin
+  namespace: tracing-demo
+spec:
+  destination:
+    name: zipkin
+  sources:
+    - name: "*"
+      action: allow
+      description: "Allow all services to send traces to Zipkin"
+
+# Made with Bob
