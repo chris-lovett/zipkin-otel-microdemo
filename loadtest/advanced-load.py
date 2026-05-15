@@ -21,6 +21,7 @@ class LoadGenerator:
         self.scenario = scenario
         self.stats = defaultdict(lambda: {"success": 0, "error": 0, "total_time": 0})
         self.lock = threading.Lock()
+        self.product_ids = [f"prod-{i}" for i in range(1, 9)]
         
     def log(self, user_id, message, color=""):
         colors = {
@@ -71,7 +72,7 @@ class LoadGenerator:
         
         # View 1-3 product details
         for _ in range(random.randint(1, 3)):
-            product_id = random.randint(1, 10)
+            product_id = random.choice(self.product_ids)
             self.make_request("GET", f"/products/{product_id}", user_id)
             time.sleep(random.uniform(0.5, 2))
     
@@ -85,11 +86,11 @@ class LoadGenerator:
         
         # Add 1-3 items
         for _ in range(random.randint(1, 3)):
-            product_id = random.randint(1, 10)
+            product_id = random.choice(self.product_ids)
             quantity = random.randint(1, 3)
-            
+
             self.make_request("POST", f"/cart/user{user_id}/items", user_id,
-                            json={"product_id": str(product_id), "quantity": quantity},
+                            json={"product_id": product_id, "quantity": quantity},
                             headers={"Content-Type": "application/json"})
             time.sleep(random.uniform(0.5, 1.5))
     
@@ -98,12 +99,20 @@ class LoadGenerator:
         self.log(user_id, "Starting checkout...", "blue")
         
         # Add item to cart first
-        product_id = random.randint(1, 10)
+        product_id = random.choice(self.product_ids)
         self.make_request("POST", f"/cart/user{user_id}/items", user_id,
-                        json={"product_id": str(product_id), "quantity": 2},
+                        json={"product_id": product_id, "quantity": 2},
                         headers={"Content-Type": "application/json"})
         time.sleep(random.uniform(0.5, 1))
-        
+
+        # Add a second item sometimes to create richer cart/checkout flows
+        if random.random() < 0.5:
+            product_id = random.choice(self.product_ids)
+            self.make_request("POST", f"/cart/user{user_id}/items", user_id,
+                            json={"product_id": product_id, "quantity": 1},
+                            headers={"Content-Type": "application/json"})
+            time.sleep(random.uniform(0.3, 0.8))
+
         # Checkout
         self.make_request("POST", "/checkout", user_id,
                         json={"user_id": f"user{user_id}"},

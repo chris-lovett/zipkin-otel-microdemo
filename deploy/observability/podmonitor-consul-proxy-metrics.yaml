@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: consul-proxy-metrics
+  namespace: tracing-demo
+  labels:
+    release: prometheus
+spec:
+  namespaceSelector:
+    matchNames:
+      - tracing-demo
+  selector:
+    matchLabels:
+      consul.hashicorp.com/connect-inject-status: injected
+  podMetricsEndpoints:
+    - path: /metrics
+      targetPort: 20200
+      interval: 30s
+
+# Made with Bob

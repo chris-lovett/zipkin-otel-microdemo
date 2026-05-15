@@ -1,6 +1,8 @@
-# Observability consolidation (standalone Prometheus + Consul mesh)
+# Observability consolidation (Consul mesh metrics on port 20200)
 
-Use **standalone Prometheus** in `observability` to scrape **Envoy/consul-dataplane** metrics on port **20200**. Do not use per-pod Prometheus sidecars or OpenShift user-workload ServiceMonitors for this demo.
+Use Prometheus to scrape **Envoy/consul-dataplane** metrics on port **20200**. Do not use per-pod Prometheus sidecars for this demo.
+
+The repo now includes a canonical [`PodMonitor`](podmonitor-consul-proxy-metrics.yaml) for clusters that use the Prometheus Operator / OpenShift monitoring stack to scrape injected Consul dataplane pods in the `tracing-demo` namespace.
 
 ## Prerequisites
 
@@ -48,13 +50,14 @@ kubectl rollout status deployment -n tracing-demo --timeout=5m
 
 Pods should be **2/2** Ready (app + consul-dataplane), not 3/3.
 
-## 4. Remove OpenShift user-workload scrape path (optional)
+## 4. Remove old sidecar-based scrape path (optional)
 
 ```bash
 kubectl delete servicemonitor consul-mesh-metrics -n tracing-demo --ignore-not-found
 kubectl delete configmap prometheus-sidecar-config -n tracing-demo --ignore-not-found
-kubectl label namespace tracing-demo openshift.io/user-monitoring- 2>/dev/null || true
 ```
+
+If you are using the Prometheus Operator / OpenShift monitoring stack, apply [`podmonitor-consul-proxy-metrics.yaml`](podmonitor-consul-proxy-metrics.yaml) and ensure its `namespaceSelector.matchNames` matches the namespace where the demo is deployed.
 
 ## 5. Grafana datasource
 

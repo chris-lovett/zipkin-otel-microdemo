@@ -1,7 +1,7 @@
 # Zipkin OpenTelemetry Microdemo - Current Project Status
 
 **Last Updated**: 2026-05-15  
-**Status**: Active demo application with working Consul mesh deployment; observability documentation consolidated around the standalone Prometheus + Grafana workflow in [`deploy/observability/README.md`](deploy/observability/README.md)
+**Status**: Active demo application with working Consul mesh deployment; observability documentation consolidated around the Prometheus + Grafana workflow in [`deploy/observability/README.md`](deploy/observability/README.md). Current live blocker: the cluster's Consul proxy metrics [`PodMonitor`](deploy/observability/podmonitor-consul-proxy-metrics.yaml) is targeting the wrong namespace, so recent Envoy metrics are not being scraped from `tracing-demo`.
 
 ## What This Project Is
 
@@ -41,10 +41,11 @@ The canonical observability path for this repo is:
 
 1. Deploy the app from [`charts/zipkin-otel-microdemo/`](charts/zipkin-otel-microdemo)
 2. Configure Consul and Prometheus/Grafana using [`deploy/observability/README.md`](deploy/observability/README.md)
-3. Patch Grafana dashboards for Consul deep-link variables using:
+3. If using the Prometheus Operator / OpenShift monitoring stack, apply [`deploy/observability/podmonitor-consul-proxy-metrics.yaml`](deploy/observability/podmonitor-consul-proxy-metrics.yaml) and make sure the namespace selection matches the deployed app namespace
+4. Patch Grafana dashboards for Consul deep-link variables using:
    - [`deploy/observability/fix-grafana-dashboard.sh`](deploy/observability/fix-grafana-dashboard.sh)
    - [`deploy/observability/patch-dashboard-consul-vars.py`](deploy/observability/patch-dashboard-consul-vars.py)
-4. Generate **mesh-aware** traffic using [`loadtest/mesh-load.sh`](loadtest/mesh-load.sh)
+5. Generate **mesh-aware** traffic using [`loadtest/mesh-load.sh`](loadtest/mesh-load.sh)
 
 ## Important Current Notes
 
@@ -105,7 +106,9 @@ At the time of this update:
 - service-defaults work has been addressed in-repo
 - stale troubleshooting documentation has already been partially archived
 - remaining cleanup work is primarily documentation alignment and removal of contradictory guidance
-- live topology/metrics validation still depends on generating fresh mesh traffic and confirming current Prometheus label/query behavior
+- fixed load generators now produce valid product/cart requests
+- the current live observability blocker is scrape discovery: the existing cluster [`PodMonitor`](deploy/observability/podmonitor-consul-proxy-metrics.yaml) is configured for namespace `demo`, while the app is deployed in `tracing-demo`
+- live topology/metrics validation depends on correcting that scrape target and then generating fresh traffic
 
 ## Short Version
 

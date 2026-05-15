@@ -11,6 +11,13 @@ FRONTEND_URL="${FRONTEND_URL:-https://frontend-tracing-demo.apps.rosa.cluster1.6
 DURATION="${DURATION:-60}"  # seconds
 CONCURRENT="${CONCURRENT:-5}"  # concurrent users
 
+PRODUCT_IDS=("prod-1" "prod-2" "prod-3" "prod-4" "prod-5" "prod-6" "prod-7" "prod-8")
+
+random_product_id() {
+    local index=$((RANDOM % ${#PRODUCT_IDS[@]}))
+    echo "${PRODUCT_IDS[$index]}"
+}
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -33,7 +40,8 @@ browse_products() {
         "$FRONTEND_URL/products"
     
     # View random product details
-    local product_id=$((RANDOM % 10 + 1))
+    local product_id
+    product_id=$(random_product_id)
     curl -s -o /dev/null -w "View product $product_id: %{http_code} (%{time_total}s)\n" \
         "$FRONTEND_URL/products/$product_id"
     
@@ -51,9 +59,10 @@ add_to_cart() {
     # Add 1-3 items to cart
     local items=$((RANDOM % 3 + 1))
     for ((i=1; i<=items; i++)); do
-        local product_id=$((RANDOM % 10 + 1))
+        local product_id
+        product_id=$(random_product_id)
         local quantity=$((RANDOM % 3 + 1))
-        
+
         curl -s -o /dev/null -w "Add product $product_id (qty: $quantity): %{http_code} (%{time_total}s)\n" \
             -X POST "$FRONTEND_URL/cart/user${user_id}/items" \
             -H 'Content-Type: application/json' \
@@ -71,14 +80,25 @@ checkout() {
     echo -e "${YELLOW}[User $user_id]${NC} Checking out..."
     
     # Add items to cart first
-    local product_id=$((RANDOM % 10 + 1))
-    curl -s -o /dev/null \
+    local product_id
+    product_id=$(random_product_id)
+    curl -s -o /dev/null -w "Seed cart with $product_id: %{http_code} (%{time_total}s)\n" \
         -X POST "$FRONTEND_URL/cart/user${user_id}/items" \
         -H 'Content-Type: application/json' \
         -d "{\"product_id\":\"$product_id\",\"quantity\":2}"
-    
+
     sleep 1
-    
+
+    # Add a second valid item sometimes so checkout paths are richer
+    if [ $((RANDOM % 2)) -eq 0 ]; then
+        product_id=$(random_product_id)
+        curl -s -o /dev/null -w "Add second product $product_id: %{http_code} (%{time_total}s)\n" \
+            -X POST "$FRONTEND_URL/cart/user${user_id}/items" \
+            -H 'Content-Type: application/json' \
+            -d "{\"product_id\":\"$product_id\",\"quantity\":1}"
+        sleep 1
+    fi
+
     # Checkout
     curl -s -o /dev/null -w "Checkout: %{http_code} (%{time_total}s)\n" \
         -X POST "$FRONTEND_URL/checkout" \
