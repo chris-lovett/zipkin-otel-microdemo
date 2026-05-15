@@ -1,0 +1,23 @@
+# Point Grafana at standalone Prometheus (not OpenShift Thanos).
+# Apply after prometheus-server is running:
+#   kubectl apply -f deploy/observability/grafana-datasource.yaml
+#
+# Optional: remove the old Thanos datasource
+#   kubectl delete grafanadatasource prometheus-thanos -n observability --ignore-not-found
+
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: prometheus-standalone
+  namespace: observability
+spec:
+  allowCrossNamespaceImport: false
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  datasource:
+    name: Prometheus
+    type: prometheus
+    access: proxy
+    isDefault: true
+    url: http://prometheus-server.observability.svc.cluster.local

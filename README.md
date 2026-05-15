@@ -3,12 +3,26 @@
 A field-demo quality Go microservices application for demonstrating distributed tracing with Zipkin, now packaged for Kubernetes/OpenShift using a single Helm chart.
 ## 📚 Documentation
 
-- **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Current deployment status, metrics solution, and operational guide
+- **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Current project status and documentation map
+- **[deploy/observability/README.md](deploy/observability/README.md)** - Canonical observability deployment, Prometheus/Grafana setup, and dashboard patch workflow
 - **[CONSUL_TOPOLOGY.md](CONSUL_TOPOLOGY.md)** - Service mesh topology configuration and verification
 - **[CONSUL_INTENTIONS.md](CONSUL_INTENTIONS.md)** - Service-to-service authorization policies
-- **[CONSUL_METRICS.md](CONSUL_METRICS.md)** - Consul UI metrics configuration
+- **[CONSUL_METRICS.md](CONSUL_METRICS.md)** - Consul UI metrics concepts and verification guidance
+- **[service-defaults.yaml](service-defaults.yaml)** - Consul ServiceDefaults for HTTP protocol detection in topology metrics
 - **[loadtest/README.md](loadtest/README.md)** - Load testing tools and scenarios
+- **[docs/archive/README.md](docs/archive/README.md)** - Historical troubleshooting and superseded implementation notes
 
+## Current Direction
+
+This repository’s current observability source of truth is [`deploy/observability/README.md`](deploy/observability/README.md).
+
+Use that workflow for:
+- standalone Prometheus in `observability`
+- Grafana datasource and dashboard wiring
+- Consul UI deep-link dashboard fixes
+- validation of mesh metrics scrape behavior
+
+Older markdown files in the repo root may describe previous implementation attempts and should be treated as historical context unless they align with the observability workflow above.
 
 ## Architecture
 
@@ -142,6 +156,40 @@ For Consul Service Mesh integration, the chart is pre-configured with:
 - Individual ServiceAccounts per service (required for Consul ACL authentication)
 
 **📖 For detailed Consul topology graph configuration and verification, see [CONSUL_TOPOLOGY.md](CONSUL_TOPOLOGY.md)**
+
+**📖 For the current observability deployment and Grafana/Prometheus workflow, see [deploy/observability/README.md](deploy/observability/README.md)**
+
+### 4a) Apply Consul ServiceDefaults for HTTP-aware topology metrics
+
+Consul's richer topology metrics depend on L7 protocol awareness. Apply [`service-defaults.yaml`](service-defaults.yaml) so the mesh knows these services speak HTTP:
+
+```bash
+kubectl apply -f service-defaults.yaml
+```
+
+This creates [`ServiceDefaults`](service-defaults.yaml) resources for:
+- `frontend`
+- `catalog`
+- `cart`
+- `checkout`
+- `payment`
+- `inventory`
+
+After applying, restart the app deployments so proxies pick up the updated service configuration:
+
+```bash
+kubectl rollout restart deployment -n tracing-demo
+kubectl rollout status deployment/frontend -n tracing-demo
+```
+
+Then generate fresh in-mesh traffic:
+
+```bash
+cd loadtest
+./mesh-load.sh
+```
+
+Wait 1-2 minutes, then refresh the Consul topology view and any Grafana dashboards linked from the Consul UI. Prefer [`mesh-load.sh`](loadtest/mesh-load.sh) over route-based load generators when validating topology or Envoy metrics.
 
 ### 5) Access the app
 
@@ -482,6 +530,12 @@ When deploying with NetworkPolicies enabled, ensure:
 - Inter-service communication within namespace is permitted
 
 Example NetworkPolicy files are included in the repository for reference.
+
+### Metrics and observability (standalone Prometheus)
+
+Envoy metrics are exposed on **port 20200** on each injected pod. Standalone Prometheus in the `observability` namespace scrapes them directly (no per-pod Prometheus sidecar).
+
+See **[deploy/observability/README.md](deploy/observability/README.md)** for Helm values, Grafana datasource, and migration steps off OpenShift user-workload monitoring.
 
 ### Verifying Consul Integration
 

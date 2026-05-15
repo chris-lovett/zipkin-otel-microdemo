@@ -1,385 +1,99 @@
-# Configuring Consul UI Metrics with Prometheus
+# Consul UI Metrics
 
-## Overview
+## Purpose
 
-The Consul UI can display service metrics (request rates, error rates, latency) from Prometheus. If the metrics section is empty despite running load tests, it means Consul UI isn't properly configured to query Prometheus.
+This document explains how Consul UI metrics fit into this demo and where to find the current implementation workflow.
 
-## Prerequisites
+For the canonical deployment and dashboard setup, use [`deploy/observability/README.md`](deploy/observability/README.md).
 
-- Prometheus deployed and running
-- Consul Service Mesh with Envoy sidecars
-- Envoy sidecars exposing metrics on port 20200
+## Metrics Path in This Demo
 
-## Architecture
+The metrics flow is:
 
-```
-Consul UI (Browser)
-    ↓ (queries)
-Consul Server (metrics proxy)
-    ↓ (queries)
-Prometheus
-    ↓ (scrapes)
-Envoy Sidecars (port 20200/metrics)
+```text
+Consul UI
+  -> Consul server metrics proxy
+  -> Prometheus
+  -> Envoy / consul-dataplane metrics on port 20200
 ```
 
-## Step 1: Run Diagnostics
+Grafana dashboards linked from the Consul UI are patched locally so their variables and PromQL align with the labels emitted by this environment.
 
-First, identify what's missing:
+## Canonical Files
+
+Use these files together:
+
+- [`deploy/observability/README.md`](deploy/observability/README.md) — current observability workflow
+- [`deploy/observability/fix-grafana-dashboard.sh`](deploy/observability/fix-grafana-dashboard.sh) — dashboard refresh/update helper
+- [`deploy/observability/patch-dashboard-consul-vars.py`](deploy/observability/patch-dashboard-consul-vars.py) — rewrites dashboard variables and PromQL for Consul deep-link use
+- [`PROJECT_STATUS.md`](PROJECT_STATUS.md) — current documentation map
+- [`CONSUL_TOPOLOGY.md`](CONSUL_TOPOLOGY.md) — topology behavior and dependency model
+
+## What to Verify
+
+### 1. Consul UI metrics is enabled
+
+Your Consul values must enable UI metrics and point Consul at the Prometheus base URL.
+
+### 2. Prometheus is scraping dataplane metrics
+
+Prometheus must be able to scrape Envoy / dataplane metrics from the demo workloads.
+
+### 3. Dashboard deep links match dashboard variables
+
+Consul passes dashboard variables such as service and namespace. The Grafana dashboard must use matching variable names and label filters, which is why the local patching step exists.
+
+### 4. Traffic is flowing through the mesh
+
+Without fresh in-mesh traffic, topology and service metrics will be sparse or empty.
+
+Use:
 
 ```bash
-cd /Users/chrislovett/hashi/monitoring/tracing/zipkin-otel-microdemo
-./diagnose-consul-metrics.sh
+cd loadtest
+./mesh-load.sh
 ```
 
-This will check:
-1. Consul UI configuration
-2. Prometheus deployment
-3. Prometheus service
-4. Envoy metrics endpoints
-5. Prometheus scrape configuration
-6. ServiceMonitor CRDs
+## Common Failure Modes
 
-## Step 2: Configure Consul UI for Metrics
+### Empty metrics in Consul UI
 
-### Option A: Using Helm Values (Recommended)
+Usually one of:
 
-Create or update your Consul Helm values file (`consul-values.yaml`):
+- no recent mesh traffic
+- Prometheus scrape path is broken
+- Consul cannot reach the configured Prometheus base URL
+- the relevant Envoy series are present but dashboard or UI queries do not match the active labels
 
-```yaml
-global:
-  name: consul
-  datacenter: dc1
+### Empty Grafana panels from Consul deep links
 
-ui:
-  enabled: true
-  service:
-    enabled: true
-  # Metrics configuration for Consul UI
-  metrics:
-    enabled: true
-    provider: "prometheus"
-    baseURL: "http://prometheus-server.consul.svc.cluster.local:9090"
+Usually one of:
 
-# Enable metrics collection from Envoy sidecars
-connectInject:
-  enabled: true
-  default: true
-  transparentProxy:
-    defaultEnabled: true
-  metrics:
-    defaultEnabled: true
-    defaultEnableMerging: true
-    enableGatewayMetrics: true
-```
+- dashboard variable mismatch, especially service vs app naming
+- namespace filters using stale labels
+- panel PromQL built for a different metric label schema
+- resource panels joining against kube-state-metrics labels that do not match the current cluster data
 
-Apply the configuration:
+## Operational Guidance
 
-```bash
-helm upgrade consul hashicorp/consul \
-  --namespace consul \
-  --values consul-values.yaml
-```
+When debugging metrics for this repo, prefer this order:
 
-### Option B: Using ConfigMap (Manual)
+1. Confirm the app pods and dataplane sidecars are healthy
+2. Generate fresh mesh traffic with [`loadtest/mesh-load.sh`](loadtest/mesh-load.sh)
+3. Verify Prometheus contains the expected Envoy series
+4. Verify Consul UI metrics configuration
+5. Verify the Grafana dashboard patch workflow under [`deploy/observability/`](deploy/observability)
 
-If you can't upgrade Consul, you can add a ConfigMap with UI configuration:
+## Historical Notes
 
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: consul-ui-config
-  namespace: consul
-data:
-  ui-config.json: |
-    {
-      "ui_config": {
-        "enabled": true,
-        "metrics_provider": "prometheus",
-        "metrics_proxy": {
-          "base_url": "http://prometheus-server.consul.svc.cluster.local:9090"
-        }
-      }
-    }
-```
+Older versions of this repo included multiple alternative implementation paths and one-off fixes. Those are historical only.
 
-Then mount this ConfigMap in the Consul server pods and restart them.
+If you need background on previous attempts, use [`docs/archive/README.md`](docs/archive/README.md), but do not treat archived documents as the current implementation guide.
 
-## Step 3: Configure Prometheus to Scrape Envoy Metrics
+## Short Version
 
-### Option A: Using Prometheus Operator (ServiceMonitor)
+If you want Consul UI metrics and linked Grafana dashboards to work in this repo:
 
-Create a ServiceMonitor to scrape Envoy sidecar metrics:
-
-```yaml
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: consul-connect-injected-services
-  namespace: consul
-  labels:
-    app: consul
-spec:
-  selector:
-    matchLabels:
-      # This will match all services with Consul sidecars
-      consul.hashicorp.com/connect-inject-status: "injected"
-  namespaceSelector:
-    any: true
-  endpoints:
-    - port: envoy-metrics
-      interval: 30s
-      path: /metrics
-```
-
-### Option B: Using Prometheus Configuration (Static Config)
-
-Add to your Prometheus configuration (`prometheus.yml`):
-
-```yaml
-scrape_configs:
-  - job_name: 'consul-connect-envoy'
-    kubernetes_sd_configs:
-      - role: pod
-    relabel_configs:
-      # Only scrape pods with Consul Connect injection
-      - source_labels: [__meta_kubernetes_pod_annotation_consul_hashicorp_com_connect_inject_status]
-        action: keep
-        regex: injected
-      # Use the prometheus.io/port annotation
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
-        action: replace
-        target_label: __address__
-        regex: ([^:]+)(?::\d+)?
-        replacement: $1:20200
-      # Add service name label
-      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
-        action: replace
-        target_label: service
-      # Add namespace label
-      - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        target_label: namespace
-```
-
-## Step 4: Verify Prometheus is Scraping
-
-### Check Prometheus Targets
-
-1. Port-forward to Prometheus:
-   ```bash
-   kubectl port-forward -n consul svc/prometheus-server 9090:9090
-   ```
-
-2. Open http://localhost:9090/targets
-
-3. Look for targets with job name `consul-connect-envoy` or similar
-
-4. Verify targets are "UP" and showing recent scrapes
-
-### Query Metrics in Prometheus
-
-Test that metrics are available:
-
-```promql
-# Request rate
-rate(envoy_cluster_upstream_rq_total[5m])
-
-# Error rate  
-rate(envoy_cluster_upstream_rq_xx{envoy_response_code_class="5"}[5m])
-
-# Latency (p99)
-histogram_quantile(0.99, rate(envoy_cluster_upstream_rq_time_bucket[5m]))
-```
-
-## Step 5: Verify Consul UI Shows Metrics
-
-1. Access Consul UI:
-   ```bash
-   kubectl port-forward -n consul svc/consul-ui 8500:443
-   ```
-
-2. Open https://localhost:8500
-
-3. Navigate to **Services** → select a service (e.g., `frontend`)
-
-4. Check the **Metrics** section - you should now see:
-   - Request Rate graph
-   - Error Rate graph
-   - P50/P99 Latency graphs
-
-5. Check the **Topology** view - connections should show metrics
-
-## Troubleshooting
-
-### Metrics Still Empty After Configuration
-
-**Problem**: Consul UI configured but metrics still don't appear
-
-**Solutions**:
-
-1. **Check Prometheus URL is correct**:
-   ```bash
-   # From Consul server pod, test Prometheus connectivity
-   kubectl exec -it consul-server-0 -n consul -- \
-     wget -qO- http://prometheus-server.consul.svc.cluster.local:9090/api/v1/query?query=up
-   ```
-
-2. **Verify Envoy metrics are being scraped**:
-   ```bash
-   # Query Prometheus for Envoy metrics
-   curl 'http://localhost:9090/api/v1/query?query=envoy_cluster_upstream_rq_total'
-   ```
-
-3. **Check Consul server logs**:
-   ```bash
-   kubectl logs -n consul consul-server-0 | grep -i metrics
-   ```
-
-4. **Verify NetworkPolicies aren't blocking**:
-   - Consul servers need to reach Prometheus
-   - Prometheus needs to scrape pods in tracing-demo namespace
-
-### Prometheus Not Scraping Envoy Sidecars
-
-**Problem**: Prometheus targets show no Envoy endpoints
-
-**Solutions**:
-
-1. **Verify prometheus.io annotations on pods**:
-   ```bash
-   kubectl get pod -n tracing-demo -l app.kubernetes.io/name=frontend \
-     -o jsonpath='{.items[0].metadata.annotations}' | grep prometheus
-   ```
-   
-   Should show:
-   ```
-   prometheus.io/path: /metrics
-   prometheus.io/port: 20200
-   prometheus.io/scrape: true
-   ```
-
-2. **Test Envoy metrics endpoint directly**:
-   ```bash
-   kubectl exec -it <pod-name> -n tracing-demo -c consul-dataplane -- \
-     wget -qO- http://localhost:20200/metrics | head -50
-   ```
-
-3. **Check Prometheus scrape configuration**:
-   ```bash
-   kubectl exec -it <prometheus-pod> -n consul -- \
-     cat /etc/prometheus/prometheus.yml | grep -A20 consul
-   ```
-
-### Metrics Show But Are Incorrect
-
-**Problem**: Metrics appear but show wrong values or no data
-
-**Solutions**:
-
-1. **Generate traffic to populate metrics**:
-   ```bash
-   cd loadtest
-   ./simple-load.sh
-   ```
-
-2. **Wait for scrape interval** (usually 30s-1m)
-
-3. **Check metric labels match Consul's expectations**:
-   - Consul UI expects specific Envoy metric names
-   - Verify `envoy_cluster_upstream_rq_*` metrics exist
-
-4. **Verify time range in Consul UI**:
-   - Default is last 5 minutes
-   - Adjust if needed to see historical data
-
-## Example: Complete Consul Helm Values with Metrics
-
-```yaml
-global:
-  name: consul
-  datacenter: dc1
-  image: "hashicorp/consul:1.17.0"
-  imageK8S: "hashicorp/consul-k8s-control-plane:1.3.0"
-
-server:
-  replicas: 3
-  bootstrapExpect: 3
-  storage: 10Gi
-
-ui:
-  enabled: true
-  service:
-    enabled: true
-    type: ClusterIP
-  metrics:
-    enabled: true
-    provider: "prometheus"
-    baseURL: "http://prometheus-server.consul.svc.cluster.local:9090"
-
-connectInject:
-  enabled: true
-  default: true
-  transparentProxy:
-    defaultEnabled: true
-  metrics:
-    defaultEnabled: true
-    defaultEnableMerging: true
-    enableGatewayMetrics: true
-  # Ensure prometheus annotations are added
-  annotations: |
-    "prometheus.io/scrape": "true"
-    "prometheus.io/port": "20200"
-    "prometheus.io/path": "/metrics"
-
-prometheus:
-  enabled: true
-```
-
-## Metrics Available in Consul UI
-
-Once configured, you'll see:
-
-### Service Overview Page
-- **Request Rate**: Requests per second
-- **Error Rate**: Percentage of 5xx responses
-- **P50 Latency**: Median response time
-- **P99 Latency**: 99th percentile response time
-
-### Topology View
-- **Per-connection metrics**: Request rate and success rate for each upstream
-- **Color coding**: Green (healthy), Yellow (warnings), Red (errors)
-- **Hover details**: Detailed metrics on hover
-
-### Upstream/Downstream Lists
-- **Request counts**: Total requests to/from each service
-- **Success rates**: Percentage of successful requests
-- **Latency**: Response time metrics
-
-## Related Documentation
-
-- [Consul UI Metrics](https://developer.hashicorp.com/consul/docs/connect/observability/ui-visualization)
-- [Consul Metrics Configuration](https://developer.hashicorp.com/consul/docs/agent/config/config-files#ui_config)
-- [Prometheus Kubernetes SD](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config)
-- [Envoy Metrics](https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/statistics)
-
-## Quick Reference Commands
-
-```bash
-# Diagnose metrics configuration
-./diagnose-consul-metrics.sh
-
-# Check Prometheus targets
-kubectl port-forward -n consul svc/prometheus-server 9090:9090
-# Open: http://localhost:9090/targets
-
-# Test Envoy metrics endpoint
-kubectl exec -it <pod> -n tracing-demo -c consul-dataplane -- \
-  wget -qO- http://localhost:20200/metrics
-
-# Check Consul UI config
-kubectl exec -it consul-server-0 -n consul -- \
-  cat /consul/config/server.json | grep -A10 ui_config
-
-# Generate traffic for metrics
-cd loadtest && ./simple-load.sh
+- follow [`deploy/observability/README.md`](deploy/observability/README.md)
+- use the dashboard patch scripts in [`deploy/observability/`](deploy/observability)
+- generate traffic with [`loadtest/mesh-load.sh`](loadtest/mesh-load.sh)

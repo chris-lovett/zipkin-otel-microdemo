@@ -1,0 +1,31 @@
+# Merge with your existing Consul Helm values (consul namespace).
+#
+#   helm upgrade consul hashicorp/consul -n consul \
+#     -f <your-existing-values.yaml> \
+#     -f deploy/observability/consul-values-observability.yaml
+#
+# Dashboard URL: MUST escape {{ }} for Helm or Consul receives literal "{{Service.Name}}".
+# See https://developer.hashicorp.com/consul/docs/connect/observability/ui-visualization
+
+connectInject:
+  enabled: true
+  metrics:
+    defaultEnabled: true
+    defaultEnableMerging: false
+    defaultPrometheusScrapePort: 20200
+    defaultPrometheusScrapePath: /metrics
+    enableGatewayMetrics: true
+  annotations: |
+    consul.hashicorp.com/telemetry-config: |
+      {"prometheus": {"bind_address": "0.0.0.0:20200"}}
+
+ui:
+  metrics:
+    enabled: true
+    provider: prometheus
+    baseURL: http://prometheus-server.observability.svc.cluster.local
+  dashboardURLTemplates:
+    # Matches HashiCorp example + Grafana vars namespace/service (Consul-aligned).
+    # {{ "{{" }} ... {{ "}}" }} prevents Helm from eating Consul's Go templates.
+    service: >-
+      https://grafana-observability.apps.rosa.cluster1.6cxo.p3.openshiftapps.com/d/data-plane-performance/data-plane-performance?orgId=1&var-service={{ "{{" }}Service.Name{{ "}}" }}&var-namespace={{ "{{" }}Service.Namespace{{ "}}" }}&var-dc={{ "{{" }}Datacenter{{ "}}" }}

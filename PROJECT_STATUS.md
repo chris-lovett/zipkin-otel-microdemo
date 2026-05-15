@@ -1,303 +1,116 @@
-# Zipkin OpenTelemetry Microdemo - Project Status
+# Zipkin OpenTelemetry Microdemo - Current Project Status
 
 **Last Updated**: 2026-05-15  
-**Status**: ✅ OPERATIONAL - Metrics and monitoring fully functional
+**Status**: Active demo application with working Consul mesh deployment; observability documentation consolidated around the standalone Prometheus + Grafana workflow in [`deploy/observability/README.md`](deploy/observability/README.md)
 
-## Quick Links
+## What This Project Is
 
-- **Main Documentation**: [`README.md`](README.md)
-- **Consul Topology**: [`CONSUL_TOPOLOGY.md`](CONSUL_TOPOLOGY.md)
-- **Consul Intentions**: [`CONSUL_INTENTIONS.md`](CONSUL_INTENTIONS.md)
-- **Load Testing**: [`loadtest/README.md`](loadtest/README.md)
+[`zipkin-otel-microdemo`](README.md) is a Go microservices demo packaged as a Helm chart for Kubernetes/OpenShift. It demonstrates:
 
-## Current Architecture
+- distributed tracing with Zipkin
+- service-to-service communication across multiple application services
+- Consul service mesh integration
+- topology, metrics, and dashboard deep links from the Consul UI
 
-### Deployed Services (7 total)
-- **frontend** (8080) - Public API gateway
-- **catalog** (8081) - Product catalog
-- **cart** (8082) - Shopping cart
-- **checkout** (8083) - Purchase orchestrator
-- **payment** (8084) - Payment processing
-- **inventory** (8085) - Stock management
-- **zipkin** (9411) - Trace collector and UI
+## Deployed Application Services
 
-### Infrastructure Components
-- **Consul Service Mesh** - mTLS, service discovery, traffic management
-- **Prometheus** (OpenShift User Workload Monitoring) - Metrics collection
-- **Grafana** - Metrics visualization
-- **Zipkin** - Distributed tracing
+- `frontend` — public entrypoint
+- `catalog` — product catalog
+- `cart` — shopping cart
+- `checkout` — order orchestration
+- `payment` — payment simulation
+- `inventory` — stock simulation
+- `zipkin` — trace collector and UI
 
-## Metrics Solution (FINAL)
+## Canonical Documentation
 
-### Implementation: Prometheus Sidecar Pattern
+Use these files as the current source of truth:
 
-Each application pod runs **3 containers**:
-1. **Application container** - The microservice
-2. **consul-dataplane** - Envoy sidecar (metrics on localhost:20200)
-3. **prometheus-sidecar** - Scrapes localhost:20200, exposes on 0.0.0.0:9090
+- [`README.md`](README.md) — project overview, app deployment, load generation, and core references
+- [`deploy/observability/README.md`](deploy/observability/README.md) — canonical observability deployment and Grafana/Prometheus workflow
+- [`CONSUL_TOPOLOGY.md`](CONSUL_TOPOLOGY.md) — topology configuration and service dependency model
+- [`CONSUL_METRICS.md`](CONSUL_METRICS.md) — Consul UI metrics configuration concepts and verification
+- [`CONSUL_INTENTIONS.md`](CONSUL_INTENTIONS.md) — service intention guidance
+- [`loadtest/README.md`](loadtest/README.md) — supported traffic generation tools
 
-### Why This Solution
+Historical troubleshooting and superseded implementation notes live under [`docs/archive/`](docs/archive/README.md).
 
-**Problem**: consul-dataplane binds metrics endpoint to `127.0.0.1:20200` (localhost only), making it inaccessible to external Prometheus.
+## Current Observability Direction
 
-**Solution**: Prometheus sidecar runs in the same pod, can access localhost, and exposes metrics externally on port 9090 for the main Prometheus to scrape.
+The canonical observability path for this repo is:
 
-### Architecture Diagram
+1. Deploy the app from [`charts/zipkin-otel-microdemo/`](charts/zipkin-otel-microdemo)
+2. Configure Consul and Prometheus/Grafana using [`deploy/observability/README.md`](deploy/observability/README.md)
+3. Patch Grafana dashboards for Consul deep-link variables using:
+   - [`deploy/observability/fix-grafana-dashboard.sh`](deploy/observability/fix-grafana-dashboard.sh)
+   - [`deploy/observability/patch-dashboard-consul-vars.py`](deploy/observability/patch-dashboard-consul-vars.py)
+4. Generate **mesh-aware** traffic using [`loadtest/mesh-load.sh`](loadtest/mesh-load.sh)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Each Pod (7 total)                                              │
-│                                                                 │
-│  ┌──────────────┐  ┌──────────────────┐  ┌─────────────────┐  │
-│  │ Application  │  │ consul-dataplane │  │ prometheus-     │  │
-│  │ Container    │  │                  │  │ sidecar         │  │
-│  │              │  │ Metrics:         │  │                 │  │
-│  │              │  │ 127.0.0.1:20200  │  │ Scrapes:        │  │
-│  │              │  │ (localhost only) │◄─┤ localhost:20200 │  │
-│  │              │  │                  │  │                 │  │
-│  │              │  │ 5,105 Envoy      │  │ Exposes:        │  │
-│  │              │  │ metrics          │  │ 0.0.0.0:9090    │  │
-│  └──────────────┘  └──────────────────┘  └─────────────────┘  │
-│                                                    │            │
-└────────────────────────────────────────────────────┼────────────┘
-                                                     │ /federate
-                                                     ▼
-                                    ┌────────────────────────────┐
-                                    │ Prometheus User Workload   │
-                                    │ (OpenShift)                │
-                                    │                            │
-                                    │ Scrapes all 7 pods via     │
-                                    │ ServiceMonitor             │
-                                    └────────────────────────────┘
-```
+## Important Current Notes
 
-### OpenShift-Specific Configuration
+### 1. Do not treat older sidecar/UWM guidance as canonical
 
-**Critical Labels Required**:
-- Namespace: `openshift.io/user-monitoring=true`
-- ServiceMonitor: `openshift.io/user-monitoring=true`
+Some historical documents in this repo describe a Prometheus sidecar or OpenShift user-workload monitoring path as the final solution. Those notes are historical only and should not be treated as the current source of truth for this repository.
 
-**Why**: OpenShift separates cluster monitoring from user workload monitoring. User-workload Prometheus only discovers ServiceMonitors with the correct label.
+### 2. Dashboard source of truth comes from upstream workflow
 
-### Verification Commands
+For Consul UI deep-link dashboards, this repo should stay aligned with the upstream workflow documented in [`../learn-consul-proxy-metrics/README.md`](../learn-consul-proxy-metrics/README.md), especially the downloaded upstream dashboard + local patching model.
 
-```bash
-# Check all pods have 3/3 containers
-kubectl get pods -n tracing-demo
+### 3. Traffic must go through the mesh
 
-# Check Prometheus targets (should show 7 pods as "up")
-kubectl exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prometheus -- \
-  wget -qO- 'http://localhost:9090/api/v1/targets' | \
-  jq '.data.activeTargets[] | select(.labels.namespace=="tracing-demo")'
+For topology and Envoy metrics validation, use mesh-aware traffic generation. Route-based traffic can bypass the dataplane path needed for some metrics and topology validation.
 
-# Query metrics
-kubectl exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prometheus -- \
-  wget -qO- 'http://localhost:9090/api/v1/query?query=envoy_cluster_upstream_rq_total{namespace="tracing-demo"}' | \
-  jq '.data.result | length'
-```
+Preferred command:
 
-## Grafana Dashboard Configuration
-
-### Status: ✅ WORKING
-
-**Dashboard**: "Data Plane Performance" (UID: `data-plane-performance`)
-
-**Access URLs**:
-- Direct: `https://grafana-observability.apps.rosa.cluster1.6cxo.p3.openshiftapps.com`
-- Dashboard: `https://grafana-observability.apps.rosa.cluster1.6cxo.p3.openshiftapps.com/d/data-plane-performance/data-plane-performance`
-- With namespace: `...?var-namespace=tracing-demo`
-
-**Credentials**: admin / changeme123
-
-### Namespace Variable Fix Applied
-
-**Problem**: Namespace dropdown was empty because the query used `container_memory_working_set_bytes` which wasn't accessible.
-
-**Solution**: Changed to `label_values(envoy_cluster_upstream_rq_total, namespace)` which uses our available Envoy metrics.
-
-### Using the Dashboard
-
-1. Open dashboard URL
-2. Set **namespace** = `tracing-demo`
-3. Set **service** = any service (cart, catalog, etc.)
-4. Generate traffic: `cd loadtest && ./mesh-load.sh`
-5. Watch metrics populate
-
-## Traffic Generation (CRITICAL)
-
-### ⚠️ Important: Use Mesh-Aware Load Test
-
-**WRONG** (bypasses mesh):
-```bash
-./simple-load.sh  # Uses external Route, no Envoy metrics
-```
-
-**CORRECT** (flows through mesh):
-```bash
-./mesh-load.sh    # Uses kubectl exec, generates Envoy metrics
-```
-
-### Why This Matters
-
-The original `simple-load.sh` accessed services via OpenShift Routes, which bypass Envoy sidecars entirely. No Envoy traffic = no metrics.
-
-The `mesh-load.sh` script executes requests from inside pods, ensuring all traffic flows through Consul Service Mesh and generates metrics.
-
-## Consul UI Metrics
-
-### Status: ✅ WORKING
-
-Consul UI displays metrics from Prometheus including:
-- Request rates (RPS)
-- Error rates
-- Latency (P50, P95, P99)
-- Service topology with traffic flow
-
-**Configuration**: See [`CONSUL_METRICS.md`](CONSUL_METRICS.md) for detailed setup.
-
-## Known Issues & Solutions
-
-### Issue: "No Metrics Available" in Consul UI
-
-**Cause**: No traffic flowing through the mesh
-
-**Solution**:
 ```bash
 cd loadtest
 ./mesh-load.sh
 ```
 
-Wait 1-2 minutes for metrics to populate.
+## What Is Consolidated vs Historical
 
-### Issue: Grafana Shows "No data"
+### Active / current
+- app source in [`cmd/`](cmd)
+- Helm chart in [`charts/zipkin-otel-microdemo/`](charts/zipkin-otel-microdemo)
+- observability workflow in [`deploy/observability/`](deploy/observability)
+- root docs that describe current app behavior and operator workflow
 
-**Causes**:
-1. Wrong namespace selected (must be "tracing-demo")
-2. No traffic (run mesh-load.sh)
-3. Wrong time range (try "Last 1 hour")
+### Historical / troubleshooting reference
+- one-off investigation summaries
+- obsolete “final solution” notes from earlier metrics iterations
+- narrow Grafana fix notes once superseded by the patching workflow
+- root-level debug markdown that has been moved or should be treated as archive material
 
-**Solution**: Set namespace variable, generate traffic, adjust time range.
+## Recommended Reading Order
 
-### Issue: Prometheus Targets Show "DOWN"
+1. [`README.md`](README.md)
+2. [`deploy/observability/README.md`](deploy/observability/README.md)
+3. [`CONSUL_TOPOLOGY.md`](CONSUL_TOPOLOGY.md)
+4. [`CONSUL_METRICS.md`](CONSUL_METRICS.md)
+5. [`loadtest/README.md`](loadtest/README.md)
 
-**Cause**: Usually NetworkPolicy blocking traffic or pods not ready
+## Current Cleanup Assessment
 
-**Solution**:
-```bash
-# Check pod status
-kubectl get pods -n tracing-demo
+The main repo cleanup need is not application code but documentation and operational script sprawl. The current consolidation goal is:
 
-# Check NetworkPolicies
-kubectl get networkpolicy -n tracing-demo
+- keep one clear current-state story at the repo root
+- keep observability implementation details under [`deploy/observability/`](deploy/observability)
+- keep historical debugging notes under [`docs/archive/`](docs/archive/README.md)
+- reduce duplicate or contradictory “working solution” documents
 
-# Verify ServiceMonitor labels
-kubectl get servicemonitor -n tracing-demo consul-mesh-metrics -o yaml | grep openshift.io
-```
+## Operational Reality Check
 
-## Files Structure
+At the time of this update:
 
-### Active Documentation
-- [`README.md`](README.md) - Main project documentation
-- [`PROJECT_STATUS.md`](PROJECT_STATUS.md) - This file (current status)
-- [`CONSUL_TOPOLOGY.md`](CONSUL_TOPOLOGY.md) - Service mesh topology configuration
-- [`CONSUL_INTENTIONS.md`](CONSUL_INTENTIONS.md) - Service-to-service authorization
-- [`CONSUL_METRICS.md`](CONSUL_METRICS.md) - Consul UI metrics configuration
-- [`loadtest/README.md`](loadtest/README.md) - Load testing documentation
+- service-defaults work has been addressed in-repo
+- stale troubleshooting documentation has already been partially archived
+- remaining cleanup work is primarily documentation alignment and removal of contradictory guidance
+- live topology/metrics validation still depends on generating fresh mesh traffic and confirming current Prometheus label/query behavior
 
-### Archived Documentation (Historical Reference)
-See [`docs/archive/`](docs/archive/) for historical troubleshooting documents from the metrics implementation process.
+## Short Version
 
-## Deployment Commands
+If you need to understand where the project stands:
 
-### Initial Deployment
-```bash
-# Create namespace
-kubectl create namespace tracing-demo
-
-# Install with Helm
-helm upgrade --install zipkin-demo \
-  ./charts/zipkin-otel-microdemo \
-  -n tracing-demo \
-  --set global.imageRegistry=quay.io/<your-org>/zipkin-otel-microdemo
-```
-
-### Verify Deployment
-```bash
-# Check pods (should be 3/3 containers)
-kubectl get pods -n tracing-demo
-
-# Check services
-kubectl get svc -n tracing-demo
-
-# Check routes
-oc get route -n tracing-demo
-```
-
-### Generate Traffic
-```bash
-cd loadtest
-./mesh-load.sh
-```
-
-### Access UIs
-```bash
-# Get URLs
-oc get route frontend -n tracing-demo
-oc get route zipkin -n tracing-demo
-
-# Grafana (if configured)
-echo "https://grafana-observability.apps.rosa.cluster1.6cxo.p3.openshiftapps.com"
-```
-
-## Metrics Available
-
-### Envoy Metrics (5,105 total)
-- `envoy_cluster_upstream_rq_total` - Total requests
-- `envoy_cluster_upstream_rq_time_bucket` - Request latency histogram
-- `envoy_cluster_upstream_cx_active` - Active connections
-- `envoy_http_downstream_rq_total` - HTTP requests
-- Plus 5,100+ other Envoy metrics
-
-### Metric Labels
-- `namespace`: "tracing-demo"
-- `local_cluster`: Service name (cart, catalog, etc.)
-- `consul_source_service`: Consul service name
-- `pod`: Pod name
-- `service`: "consul-mesh-metrics"
-
-## Success Criteria
-
-- ✅ 7/7 pods running with 3/3 containers
-- ✅ 7/7 Prometheus targets with health "up"
-- ✅ 5,105 Envoy metrics being scraped
-- ✅ Metrics queryable in Prometheus
-- ✅ Consul UI displays service metrics
-- ✅ Grafana dashboards show data
-- ✅ Zipkin traces show Envoy + application spans
-
-## Support & Troubleshooting
-
-For detailed troubleshooting, see archived documentation in [`docs/archive/`](docs/archive/):
-- Historical metrics fixes
-- OpenShift-specific configurations
-- Dashboard troubleshooting
-- Root cause analyses
-
-## Timeline
-
-- **2026-05-14**: Metrics solution implemented (Prometheus sidecar pattern)
-- **2026-05-14**: OpenShift monitoring labels configured
-- **2026-05-14**: Grafana dashboard namespace variable fixed
-- **2026-05-14**: Load test corrected to use mesh-aware approach
-- **2026-05-15**: Documentation consolidated
-
-## Next Steps
-
-1. **For Demos**: Run `./mesh-load.sh` before showing metrics
-2. **For Development**: Use the working solution as-is
-3. **For Production**: Consider upgrading Consul to version that supports bind address configuration
-4. **For Optimization**: Monitor sidecar resource usage, adjust if needed
-
----
-
-**Status**: Ready for customer presentations and demonstrations.
+- the **app and Helm chart are usable**
+- the **observability path should follow [`deploy/observability/README.md`](deploy/observability/README.md)**
+- the **archive contains old attempts and should not be treated as current design**

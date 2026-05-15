@@ -161,19 +161,18 @@ kubectl exec -it $CONSUL_POD -n consul -- \
 
 ### 4. Generate Traffic to Populate Metrics
 
-The topology graph is more useful with traffic flowing:
+The topology graph is more useful with traffic flowing, but for this repo you should prefer **mesh-aware** traffic generation so the dataplane path and Envoy metrics are actually exercised.
 
 ```bash
 cd loadtest
 
-# Generate some traffic
-./simple-load.sh
-
-# Or use the advanced load generator
-./advanced-load.py --scenario mixed --users 10 --duration 60
+# Preferred: generate in-mesh traffic
+./mesh-load.sh
 ```
 
-After generating traffic, the topology view will show:
+If you use other load generators, verify they still exercise the mesh path you want to observe. Route-based traffic can be useful for app demos, but it is less reliable for validating Consul topology and Envoy metrics in this repository.
+
+After generating traffic, the topology view should begin to show:
 - Request rates between services
 - Success/error rates
 - Latency metrics

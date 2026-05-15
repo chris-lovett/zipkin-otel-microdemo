@@ -1,0 +1,67 @@
+# Standalone Prometheus (prometheus-community/prometheus chart) in namespace observability.
+# Scrapes Consul-injected pods via prometheus.io annotations on port 20200.
+#
+# Install / upgrade:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm upgrade --install prometheus prometheus-community/prometheus \
+#     -n observability -f deploy/observability/prometheus-values.yaml
+
+rbac:
+  create: true
+
+server:
+  extraFlags:
+    - web.enable-lifecycle
+
+  # Reuse the existing PVC — do not change size or storageClass on upgrade (immutable).
+  persistentVolume:
+    enabled: true
+    existingClaim: prometheus-server
+
+  # In-cluster URL used by Consul UI metrics proxy
+  fullnameOverride: prometheus-server
+
+# Chart schema requires a string (appended to prometheus.yml), not a YAML array.
+extraScrapeConfigs: |
+  - job_name: consul-mesh-envoy
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_namespace]
+        action: keep
+        regex: tracing-demo|consul
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: pod
+      - source_labels: [__meta_kubernetes_pod_container_name]
+        action: replace
+        target_label: container
+
+alertmanager:
+  enabled: false
+
+kube-state-metrics:
+  enabled: true
+
+prometheus-node-exporter:
+  enabled: true
+
+prometheus-pushgateway:
+  enabled: false

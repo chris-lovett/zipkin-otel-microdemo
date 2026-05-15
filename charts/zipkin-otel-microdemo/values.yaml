@@ -4,6 +4,13 @@ global:
   imagePullSecrets:
     - name: quay-pull
 
+# Consul Service Mesh (metrics scraped by standalone Prometheus on :20200; see deploy/observability/)
+consul:
+  connectInject: true
+  transparentProxy: true
+  # Expose consul-dataplane /metrics on the pod network (required for external Prometheus scrape)
+  telemetryPromBindAddress: "0.0.0.0:20200"
+
 serviceAccount:
   create: true
   name: ""
@@ -18,7 +25,7 @@ appSecurityContext:
       - ALL
 
 waitForDependencies:
-  enabled: true
+  enabled: false
   image: curlimages/curl:8.8.0
   imagePullPolicy: IfNotPresent
 

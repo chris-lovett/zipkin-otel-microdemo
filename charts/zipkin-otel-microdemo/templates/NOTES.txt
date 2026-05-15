@@ -1,9 +1,14 @@
-1. Frontend service (internal):
+1. Mesh pods should show 2/2 Ready (app + consul-dataplane):
+   kubectl get pods -n {{ .Release.Namespace }}
+
+2. Metrics: standalone Prometheus in observability scrapes :20200 — see deploy/observability/README.md
+
+3. Frontend service (internal):
    kubectl get svc frontend
 
-2. OpenShift routes (if enabled):
+4. OpenShift routes (if enabled):
    kubectl get route frontend
    kubectl get route zipkin
 
-3. Ingress resources (if enabled):
+5. Ingress resources (if enabled):
    kubectl get ingress frontend
