@@ -1,6 +1,14 @@
 # zipkin-otel-microdemo
 
 A field-demo quality Go microservices application for demonstrating distributed tracing with Zipkin, now packaged for Kubernetes/OpenShift using a single Helm chart.
+## 📚 Documentation
+
+- **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Current deployment status, metrics solution, and operational guide
+- **[CONSUL_TOPOLOGY.md](CONSUL_TOPOLOGY.md)** - Service mesh topology configuration and verification
+- **[CONSUL_INTENTIONS.md](CONSUL_INTENTIONS.md)** - Service-to-service authorization policies
+- **[CONSUL_METRICS.md](CONSUL_METRICS.md)** - Consul UI metrics configuration
+- **[loadtest/README.md](loadtest/README.md)** - Load testing tools and scenarios
+
 
 ## Architecture
 

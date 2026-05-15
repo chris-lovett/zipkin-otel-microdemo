@@ -21,6 +21,9 @@ spec:
       annotations:
         consul.hashicorp.com/connect-inject: "true"
         consul.hashicorp.com/transparent-proxy: "true"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/federate"
         {{- if $svc.consulUpstreams }}
         consul.hashicorp.com/connect-service-upstreams: {{ $svc.consulUpstreams | quote }}
         {{- end }}
@@ -81,6 +84,41 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+        - name: prometheus-sidecar
+          image: prom/prometheus:v2.45.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path=/prometheus'
+            - '--web.listen-address=0.0.0.0:9090'
+            - '--storage.tsdb.retention.time=1h'
+            - '--storage.tsdb.min-block-duration=1h'
+            - '--storage.tsdb.max-block-duration=1h'
+            - '--web.enable-lifecycle'
+          ports:
+            - name: prometheus
+              containerPort: 9090
+              protocol: TCP
+          volumeMounts:
+            - name: prometheus-config
+              mountPath: /etc/prometheus
+            - name: prometheus-storage
+              mountPath: /prometheus
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          securityContext:
+            {{- toYaml $.Values.appSecurityContext | nindent 12 }}
+      volumes:
+        - name: prometheus-config
+          configMap:
+            name: prometheus-sidecar-config
+        - name: prometheus-storage
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
