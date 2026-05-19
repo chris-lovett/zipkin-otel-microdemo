@@ -1,0 +1,34 @@
+{
+  "title": "Envoy & Application Logs",
+  "uid": "platform-envoy-app-logs",
+  "description": "HashiCups pod logs, Envoy access logs (JSON parsed), and log volume by pod",
+  "tags": ["loki", "logs", "hashicups", "envoy", "platform"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "15s",
+  "graphTooltip": 1,
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "editable": true,
+  "id": null,
+  "links": [],
+  "version": 1,
+  "templating": {
+    "list": [
+      { "name": "datacenter", "label": "Datacenter", "type": "custom", "query": "dc1,dc2", "includeAll": true, "allValue": "dc1|dc2", "multi": true, "hide": 0, "current": { "text": "All", "value": "$__all" }, "options": [ { "text": "All", "value": "$__all", "selected": true }, { "text": "dc1", "value": "dc1", "selected": false }, { "text": "dc2", "value": "dc2", "selected": false } ] },
+      { "name": "namespace", "label": "Namespace", "type": "query", "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "definition": "label_values({datacenter=~\"$datacenter\"}, namespace)", "query": "label_values({datacenter=~\"$datacenter\"}, namespace)", "includeAll": true, "allValue": ".+", "multi": false, "hide": 0, "refresh": 2, "sort": 1, "current": {}, "options": [] },
+      { "name": "pod", "label": "Pod", "type": "query", "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "definition": "label_values({datacenter=~\"$datacenter\", namespace=\"$namespace\"}, pod)", "query": "label_values({datacenter=~\"$datacenter\", namespace=\"$namespace\"}, pod)", "includeAll": true, "allValue": ".+", "multi": true, "hide": 0, "refresh": 2, "sort": 1, "current": {}, "options": [] }
+    ]
+  },
+  "panels": [
+    { "id": 1, "type": "stat", "title": "App Log Volume (lines/s)", "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 }, "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "short", "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } }, "overrides": [] }, "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } }, "targets": [ { "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "refId": "A", "expr": "sum(rate({datacenter=~\"$datacenter\", namespace=~\"$namespace\", app=~\"frontend|nginx|payments|product-api|product-api-db|public-api\", pod=~\"$pod\"}[1m]))", "legendFormat": "lines/s" } ] },
+    { "id": 2, "type": "stat", "title": "App Error Rate (lines/s)", "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 }, "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "short", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.1 }, { "color": "red", "value": 1 }] } }, "overrides": [] }, "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } }, "targets": [ { "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "refId": "A", "expr": "sum(rate({datacenter=~\"$datacenter\", namespace=~\"$namespace\", app=~\"frontend|nginx|payments|product-api|product-api-db|public-api\", pod=~\"$pod\"} |~ \"(?i)(error|fatal|panic)\"[1m]))", "legendFormat": "errors/s" } ] },
+    { "id": 3, "type": "stat", "title": "Envoy 5xx Rate (lines/s)", "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 }, "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "short", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.05 }, { "color": "red", "value": 0.5 }] } }, "overrides": [] }, "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } }, "targets": [ { "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "refId": "A", "expr": "sum(rate({datacenter=~\"$datacenter\", namespace=~\"$namespace\", container=\"consul-dataplane\", pod=~\"$pod\"} | json | response_code >= 500 [1m]))", "legendFormat": "5xx/s" } ] },
+    { "id": 10, "type": "row", "title": "Log Volume by Pod", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 } },
+    { "id": 11, "type": "timeseries", "title": "App Log Lines / Second by Pod", "gridPos": { "h": 8, "w": 24, "x": 0, "y": 5 }, "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 1, "fillOpacity": 10 }, "unit": "short" }, "overrides": [] }, "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } }, "targets": [ { "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "refId": "A", "expr": "sum by (pod) (rate({datacenter=~\"$datacenter\", namespace=~\"$namespace\", app=~\"frontend|nginx|payments|product-api|product-api-db|public-api\", pod=~\"$pod\"}[$__interval]))", "legendFormat": "{{pod}}" } ] },
+    { "id": 20, "type": "row", "title": "HashiCups Application Logs", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 } },
+    { "id": 21, "type": "logs", "title": "HashiCups Pod Logs", "gridPos": { "h": 14, "w": 24, "x": 0, "y": 14 }, "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "fieldConfig": { "defaults": {}, "overrides": [] }, "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": false }, "targets": [ { "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "refId": "A", "expr": "{datacenter=~\"$datacenter\", namespace=~\"$namespace\", app=~\"frontend|nginx|payments|product-api|product-api-db|public-api\", pod=~\"$pod\"}", "legendFormat": "" } ] },
+    { "id": 30, "type": "row", "title": "Envoy Access Logs (JSON parsed)", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 28 } },
+    { "id": 31, "type": "logs", "title": "Envoy Access Logs", "gridPos": { "h": 14, "w": 24, "x": 0, "y": 29 }, "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "fieldConfig": { "defaults": {}, "overrides": [] }, "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": true, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true }, "targets": [ { "datasource": { "type": "loki", "uid": "LOKI_DC1" }, "refId": "A", "expr": "{datacenter=~\"$datacenter\", namespace=~\"$namespace\", container=\"consul-dataplane\", pod=~\"$pod\"} | json | __error__=\"\"", "legendFormat": "" } ] }
+  ]
+}

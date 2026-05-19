@@ -1,0 +1,49 @@
+# Add this scrape config to Prometheus for Consul server metrics with ACL authentication
+# 
+# This should be added to the prometheus.yml in the prometheus-server ConfigMap
+# under the scrape_configs section
+
+    - job_name: 'consul-servers'
+      honor_labels: true
+      kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+          - consul
+      # Use bearer token from consul-bootstrap-acl-token secret
+      bearer_token_file: /var/run/secrets/consul-acl-token/token
+      scheme: https
+      tls_config:
+        insecure_skip_verify: true
+      relabel_configs:
+      # Only scrape pods with component=server label
+      - source_labels: [__meta_kubernetes_pod_label_component]
+        action: keep
+        regex: server
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: consul
+      # Set metrics path
+      - source_labels: []
+        target_label: __metrics_path__
+        replacement: /v1/agent/metrics
+      # Add format=prometheus query parameter
+      - source_labels: [__address__]
+        target_label: __param_format
+        replacement: prometheus
+      # Use port 8501 (HTTPS)
+      - source_labels: [__address__]
+        regex: ([^:]+)(?::\d+)?
+        replacement: ${1}:8501
+        target_label: __address__
+      # Add labels
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_label_datacenter]
+        target_label: datacenter
+      - source_labels: [__meta_kubernetes_pod_label_component]
+        target_label: component
+
+# Made with Bob

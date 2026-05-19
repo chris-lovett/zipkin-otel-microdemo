@@ -1,0 +1,40 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: consul-server
+  namespace: consul
+  labels:
+    app: consul
+    component: server
+spec:
+  selector:
+    matchLabels:
+      app: consul
+      component: server
+  endpoints:
+  - port: https
+    interval: 30s
+    scheme: https
+    path: /v1/agent/metrics
+    params:
+      format: ['prometheus']
+    tlsConfig:
+      insecureSkipVerify: true
+    bearerTokenSecret:
+      name: consul-bootstrap-acl-token
+      key: token
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
+    - sourceLabels: [__meta_kubernetes_pod_label_component]
+      targetLabel: component
+    - replacement: consul-servers
+      targetLabel: job
+    - sourceLabels: [__meta_kubernetes_pod_label_datacenter]
+      targetLabel: datacenter
+      regex: (.+)
+      replacement: $1
+
+# Made with Bob
