@@ -1,0 +1,28 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: consul-api-gateway
+  namespace: tracing-demo
+  labels:
+    app: consul-api-gateway
+spec:
+  selector:
+    matchLabels:
+      component: api-gateway
+  namespaceSelector:
+    matchNames:
+      - tracing-demo
+  podMetricsEndpoints:
+    - port: metrics
+      path: /stats/prometheus
+      interval: 30s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        - targetLabel: job
+          replacement: consul-api-gateway
+
+# Made with Bob

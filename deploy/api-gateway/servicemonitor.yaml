@@ -1,0 +1,28 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: consul-api-gateway
+  namespace: tracing-demo
+  labels:
+    app: consul-api-gateway
+spec:
+  selector:
+    matchLabels:
+      api-gateway.consul.hashicorp.com/managed: "true"
+  namespaceSelector:
+    matchNames:
+      - tracing-demo
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        - targetLabel: job
+          replacement: consul-api-gateway
+
+# Made with Bob

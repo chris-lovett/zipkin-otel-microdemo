@@ -1,0 +1,30 @@
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: consul-api-gateway
+spec:
+  controllerName: consul.hashicorp.com/gateway-controller
+  parametersRef:
+    group: consul.hashicorp.com
+    kind: GatewayClassConfig
+    name: consul-api-gateway
+---
+apiVersion: consul.hashicorp.com/v1alpha1
+kind: GatewayClassConfig
+metadata:
+  name: consul-api-gateway
+spec:
+  useHostPorts: true
+  logLevel: info
+  serviceType: ClusterIP
+  metrics:
+    enabled: true
+    port: 20200
+    path: /metrics
+  deployment:
+    defaultInstances: 1
+    maxInstances: 3
+    minInstances: 1
+
+# Made with Bob

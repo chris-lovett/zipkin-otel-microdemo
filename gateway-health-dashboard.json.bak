@@ -1,0 +1,772 @@
+{
+  "title": "Gateway Health",
+  "uid": "platform-gateway-health",
+  "description": "API Gateway, Terminating Gateway, and Mesh Gateway traffic, errors, latency, and connection health",
+  "tags": [
+    "consul",
+    "gateway",
+    "api-gateway",
+    "mesh-gateway",
+    "platform"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "30s",
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "editable": true,
+  "id": null,
+  "links": [],
+  "version": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+        },
+        "definition": "label_values(up, namespace)",
+        "query": {
+          "query": "label_values(up, namespace)",
+          "refId": "StandardVariableQuery"
+        },
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": false,
+        "hide": 0,
+        "refresh": 2,
+        "sort": 1,
+        "current": {},
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "API GW Request Rate",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "reqps",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "A",
+          "expr": "sum(rate(envoy_http_downstream_rq_total{job=\"consul-api-gateway\", datacenter=~\"$datacenter\"}[5m]))",
+          "instant": true,
+          "legendFormat": "RPS"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "API GW 5xx Error Rate",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "A",
+          "expr": "100 * sum(rate(envoy_http_downstream_rq_5xx{job=\"consul-api-gateway\", datacenter=~\"$datacenter\"}[5m])) / clamp_min(sum(rate(envoy_http_downstream_rq_total{job=\"consul-api-gateway\", datacenter=~\"$datacenter\"}[5m])), 1)",
+          "instant": true,
+          "legendFormat": "Error %"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "API GW P99 Latency",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 2000
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(envoy_http_downstream_rq_time_bucket{job=\"consul-api-gateway\", datacenter=~\"$datacenter\"}[5m])))",
+          "instant": true,
+          "legendFormat": "P99 ms"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "API GW Active Downstream Connections",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "A",
+          "expr": "sum(envoy_http_downstream_cx_active{job=\"consul-api-gateway\", datacenter=~\"$datacenter\"})",
+          "instant": true,
+          "legendFormat": "Active Connections"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "API Gateway",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "API GW Request Rate (RPS)",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "A",
+          "expr": "sum by (pod) (rate(envoy_http_downstream_rq_total{job=\"consul-api-gateway\", datacenter=~\"$datacenter\"}[5m]))",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "API GW Error Rate by Status Class (%)",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "A",
+          "expr": "100 * sum(rate(envoy_http_downstream_rq_4xx{job=\"consul-api-gateway\", datacenter=~\"$datacenter\"}[5m])) / clamp_min(sum(rate(envoy_http_downstream_rq_total{job=\"consul-api-gateway\", datacenter=~\"$datacenter\"}[5m])), 1)",
+          "legendFormat": "4xx %"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "B",
+          "expr": "100 * sum(rate(envoy_http_downstream_rq_5xx{job=\"consul-api-gateway\", datacenter=~\"$datacenter\"}[5m])) / clamp_min(sum(rate(envoy_http_downstream_rq_total{job=\"consul-api-gateway\", datacenter=~\"$datacenter\"}[5m])), 1)",
+          "legendFormat": "5xx %"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "API GW Latency Percentiles (ms)",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(envoy_http_downstream_rq_time_bucket{job=\"consul-api-gateway\", datacenter=~\"$datacenter\"}[5m])))",
+          "legendFormat": "P50"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(envoy_http_downstream_rq_time_bucket{job=\"consul-api-gateway\", datacenter=~\"$datacenter\"}[5m])))",
+          "legendFormat": "P95"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(envoy_http_downstream_rq_time_bucket{job=\"consul-api-gateway\", datacenter=~\"$datacenter\"}[5m])))",
+          "legendFormat": "P99"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Terminating Gateway (External Services)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      }
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Terminating GW External RPS",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "A",
+          "expr": "sum by (pod) (rate(envoy_cluster_upstream_rq_total{pod=~\".*terminating.*\", datacenter=~\"$datacenter\"}[5m]))",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Terminating GW External Error Rate (%)",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 22
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "A",
+          "expr": "100 * sum by (pod) (rate(envoy_cluster_upstream_rq_5xx{pod=~\".*terminating.*\", datacenter=~\"$datacenter\"}[5m])) / clamp_min(sum by (pod) (rate(envoy_cluster_upstream_rq_total{pod=~\".*terminating.*\", datacenter=~\"$datacenter\"}[5m])), 1)",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "Terminating GW External P99 Latency (ms)",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 22
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le, pod) (rate(envoy_cluster_upstream_rq_time_bucket{pod=~\".*terminating.*\", datacenter=~\"$datacenter\"}[5m])))",
+          "legendFormat": "P99 {{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "Mesh Gateway (Cross-DC Traffic)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 30
+      }
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Mesh GW Upstream Request Rate",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 31
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "A",
+          "expr": "sum by (pod) (rate(envoy_cluster_upstream_rq_total{job=\"consul-mesh-gateway\", datacenter=~\"$datacenter\"}[5m]))",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "Mesh GW Active Upstream Connections",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 31
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "2c38364a-abcf-45d0-9eb8-ab8965fa4f8c"
+          },
+          "refId": "A",
+          "expr": "sum by (pod) (envoy_cluster_upstream_cx_active{job=\"consul-mesh-gateway\", datacenter=~\"$datacenter\"})",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    }
+  ]
+}
