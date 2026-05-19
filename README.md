@@ -1,8 +1,10 @@
 # zipkin-otel-microdemo
 
 A field-demo quality Go microservices application for demonstrating distributed tracing with Zipkin, now packaged for Kubernetes/OpenShift using a single Helm chart.
+
 ## 📚 Documentation
 
+- **[DEMO_GUIDE.md](DEMO_GUIDE.md)** - 🎯 **Step-by-step demo script** for showcasing distributed tracing with Zipkin
 - **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Current project status and documentation map
 - **[deploy/observability/README.md](deploy/observability/README.md)** - Canonical observability deployment, Prometheus/Grafana setup, and dashboard patch workflow
 - **[CONSUL_TOPOLOGY.md](CONSUL_TOPOLOGY.md)** - Service mesh topology configuration and verification

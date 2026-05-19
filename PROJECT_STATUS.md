@@ -27,6 +27,7 @@
 Use these files as the current source of truth:
 
 - [`README.md`](README.md) — project overview, app deployment, load generation, and core references
+- [`DEMO_GUIDE.md`](DEMO_GUIDE.md) — step-by-step demo script for showcasing distributed tracing with Zipkin
 - [`deploy/observability/README.md`](deploy/observability/README.md) — canonical observability deployment and Grafana/Prometheus workflow
 - [`CONSUL_TOPOLOGY.md`](CONSUL_TOPOLOGY.md) — topology configuration and service dependency model
 - [`CONSUL_METRICS.md`](CONSUL_METRICS.md) — Consul UI metrics configuration concepts and verification
@@ -85,10 +86,11 @@ cd loadtest
 ## Recommended Reading Order
 
 1. [`README.md`](README.md)
-2. [`deploy/observability/README.md`](deploy/observability/README.md)
-3. [`CONSUL_TOPOLOGY.md`](CONSUL_TOPOLOGY.md)
-4. [`CONSUL_METRICS.md`](CONSUL_METRICS.md)
-5. [`loadtest/README.md`](loadtest/README.md)
+2. [`DEMO_GUIDE.md`](DEMO_GUIDE.md) — **Start here for live demos**
+3. [`deploy/observability/README.md`](deploy/observability/README.md)
+4. [`CONSUL_TOPOLOGY.md`](CONSUL_TOPOLOGY.md)
+5. [`CONSUL_METRICS.md`](CONSUL_METRICS.md)
+6. [`loadtest/README.md`](loadtest/README.md)
 
 ## Current Cleanup Assessment
 
