@@ -13,10 +13,19 @@ server:
   extraFlags:
     - web.enable-lifecycle
 
-  # Reuse the existing PVC — do not change size or storageClass on upgrade (immutable).
+  # Mount Consul ACL token for server metrics scraping
+  extraSecretMounts:
+    - name: consul-acl-token
+      secretName: consul-bootstrap-acl-token
+      defaultMode: 0400
+      mountPath: /var/run/secrets/consul-acl-token
+      readOnly: true
+      subPath: ""
+
+  # Enable persistent volume
   persistentVolume:
     enabled: true
-    existingClaim: prometheus-server
+    size: 8Gi
 
   # In-cluster URL used by Consul UI metrics proxy
   fullnameOverride: prometheus-server
@@ -53,6 +62,43 @@ extraScrapeConfigs: |
       - source_labels: [__meta_kubernetes_pod_container_name]
         action: replace
         target_label: container
+
+  - job_name: consul-servers
+    honor_labels: true
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - consul
+    bearer_token_file: /var/run/secrets/consul-acl-token/token
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_component]
+        action: keep
+        regex: server
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: consul
+      - source_labels: []
+        target_label: __metrics_path__
+        replacement: /v1/agent/metrics
+      - source_labels: [__address__]
+        target_label: __param_format
+        replacement: prometheus
+      - source_labels: [__address__]
+        regex: ([^:]+)(?::\d+)?
+        replacement: ${1}:8501
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_label_datacenter]
+        target_label: datacenter
+      - source_labels: [__meta_kubernetes_pod_label_component]
+        target_label: component
 
 alertmanager:
   enabled: false
