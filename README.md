@@ -4,27 +4,29 @@ A field-demo quality Go microservices application for demonstrating distributed 
 
 ## 📚 Documentation
 
+- **[docs/observability/README.md](docs/observability/README.md)** - Complete Consul observability manual (start here)
 - **[DEMO_GUIDE.md](DEMO_GUIDE.md)** - 🎯 **Step-by-step demo script** for showcasing distributed tracing with Zipkin
 - **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Current project status and documentation map
-- **[deploy/observability/README.md](deploy/observability/README.md)** - Canonical observability deployment, Prometheus/Grafana setup, and dashboard patch workflow
+- **[deploy/observability/README.md](deploy/observability/README.md)** - Implementation guide for Prometheus/Grafana manifests and scripts
 - **[CONSUL_TOPOLOGY.md](CONSUL_TOPOLOGY.md)** - Service mesh topology configuration and verification
 - **[CONSUL_INTENTIONS.md](CONSUL_INTENTIONS.md)** - Service-to-service authorization policies
 - **[CONSUL_METRICS.md](CONSUL_METRICS.md)** - Consul UI metrics concepts and verification guidance
 - **[service-defaults.yaml](service-defaults.yaml)** - Consul ServiceDefaults for HTTP protocol detection in topology metrics
-- **[scripts/observability/](scripts/observability/)** - Canonical diagnose/fix/troubleshoot scripts (root scripts are compatibility wrappers)
+- **[scripts/observability/](scripts/observability/)** - Canonical diagnose/fix/troubleshoot scripts
 - **[loadtest/README.md](loadtest/README.md)** - Load testing tools and scenarios
 - **[docs/archive/README.md](docs/archive/README.md)** - Historical troubleshooting and superseded implementation notes
 
-## Current Direction
+## Observability Manual Scope
 
-This repository’s current observability source of truth is [`deploy/observability/README.md`](deploy/observability/README.md).
+This repository is a practical manual for setting up and operating observability with Consul across:
+- control plane monitoring
+- service and mesh monitoring
+- logging for Consul and applications
+- distributed tracing and verification
+- operations runbooks and troubleshooting
 
-Use that workflow for:
-- standalone Prometheus in `observability`
-- optional Prometheus Operator path via PodMonitor in OpenShift
-- Grafana datasource and dashboard wiring
-- Consul UI deep-link dashboard fixes
-- validation of mesh metrics scrape behavior
+Primary manual entrypoint:
+- [`docs/observability/README.md`](docs/observability/README.md)
 
 ## Observability Operator Flow (OpenShift-first)
 
@@ -42,22 +44,6 @@ make observability-verify
 make observability-troubleshoot
 make observability-sync-dashboards
 ```
-
-Older markdown files in the repo root may describe previous implementation attempts and should be treated as historical context unless they align with the observability workflow above.
-
-## Observability Troubleshooting (Canonical)
-
-Use the OpenShift-first operator flow from [`deploy/observability/README.md`](deploy/observability/README.md) and the canonical scripts under [`scripts/observability/`](scripts/observability/).
-
-Quick runbook commands:
-
-```bash
-make observability-verify
-make observability-troubleshoot
-make observability-sync-dashboards
-```
-
-Root legacy docs remain for historical context only. For superseded implementation details and prior troubleshooting paths, use [`docs/archive/README.md`](docs/archive/README.md).
 
 ### Consul UI Metrics Runbook (Procedure)
 
@@ -93,6 +79,8 @@ make observability-sync-dashboards
 - Open Dashboard links open with service/namespace scope already applied
 
 Conceptual model and pass/fail verification criteria are maintained in [`CONSUL_METRICS.md`](CONSUL_METRICS.md).
+
+Root legacy docs remain for historical context only. For superseded implementation details and prior troubleshooting paths, use [`docs/archive/README.md`](docs/archive/README.md).
 
 ## Architecture
 

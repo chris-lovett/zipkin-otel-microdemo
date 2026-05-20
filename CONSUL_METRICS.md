@@ -4,6 +4,8 @@
 
 This document defines the Consul UI metrics model used in this repository and the verification criteria for a healthy setup.
 
+For end-to-end observability setup and operations, start with [`docs/observability/README.md`](docs/observability/README.md).
+
 For deployment and operational runbooks, use [`README.md`](README.md) and [`deploy/observability/README.md`](deploy/observability/README.md).
 
 ## Metrics Path in This Demo
