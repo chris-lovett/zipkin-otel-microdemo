@@ -3,7 +3,17 @@
 # Comprehensive Envoy Metrics Diagnostic Script
 # Diagnoses why Envoy/consul-dataplane metrics are not being exposed
 
-set -e
+set -u
+
+pod_http_get() {
+    local namespace="$1"
+    local pod="$2"
+    local container="$3"
+    local url="$4"
+    kubectl exec -n "$namespace" "$pod" -c "$container" -- sh -c "if command -v wget >/dev/null 2>&1; then wget -q -O- --timeout=2 '$url'; elif command -v curl >/dev/null 2>&1; then curl -sf --max-time 2 '$url'; else exit 127; fi" 2>/dev/null
+}
+
+METRICS_COUNT=0
 
 echo "=========================================="
 echo "Envoy Metrics Comprehensive Diagnostics"
@@ -57,12 +67,12 @@ echo "Step 4: Testing Envoy Admin Endpoints"
 echo "=========================================="
 
 echo "Testing port 19000 (standard Envoy admin)..."
-ADMIN_19000=$(kubectl exec -n $NAMESPACE $POD_NAME -c consul-dataplane -- wget -q -O- --timeout=2 http://localhost:19000/stats/prometheus 2>/dev/null | head -5)
+ADMIN_19000=$(pod_http_get "$NAMESPACE" "$POD_NAME" consul-dataplane http://localhost:19000/stats/prometheus | head -5)
 if [ -n "$ADMIN_19000" ]; then
     echo -e "${GREEN}✓${NC} Port 19000 is accessible"
     echo "Sample metrics:"
     echo "$ADMIN_19000"
-    METRICS_COUNT=$(kubectl exec -n $NAMESPACE $POD_NAME -c consul-dataplane -- wget -q -O- --timeout=2 http://localhost:19000/stats/prometheus 2>/dev/null | grep -c "envoy_" || echo "0")
+    METRICS_COUNT=$(pod_http_get "$NAMESPACE" "$POD_NAME" consul-dataplane http://localhost:19000/stats/prometheus | grep -c "envoy_" || echo "0")
     echo "Total Envoy metrics: $METRICS_COUNT"
 else
     echo -e "${RED}✗${NC} Port 19000 not accessible or no metrics"
@@ -70,12 +80,12 @@ fi
 echo ""
 
 echo "Testing port 20200 (configured metrics port)..."
-ADMIN_20200=$(kubectl exec -n $NAMESPACE $POD_NAME -c consul-dataplane -- wget -q -O- --timeout=2 http://localhost:20200/stats/prometheus 2>/dev/null | head -5)
+ADMIN_20200=$(pod_http_get "$NAMESPACE" "$POD_NAME" consul-dataplane http://localhost:20200/metrics | head -5)
 if [ -n "$ADMIN_20200" ]; then
     echo -e "${GREEN}✓${NC} Port 20200 is accessible"
     echo "Sample metrics:"
     echo "$ADMIN_20200"
-    METRICS_COUNT=$(kubectl exec -n $NAMESPACE $POD_NAME -c consul-dataplane -- wget -q -O- --timeout=2 http://localhost:20200/stats/prometheus 2>/dev/null | grep -c "envoy_" || echo "0")
+    METRICS_COUNT=$(pod_http_get "$NAMESPACE" "$POD_NAME" consul-dataplane http://localhost:20200/metrics | grep -c "envoy_" || echo "0")
     echo "Total Envoy metrics: $METRICS_COUNT"
 else
     echo -e "${RED}✗${NC} Port 20200 not accessible or no metrics"
@@ -87,7 +97,7 @@ echo "=========================================="
 echo "Step 5: Checking Envoy Admin Interface"
 echo "=========================================="
 echo "Available admin endpoints:"
-kubectl exec -n $NAMESPACE $POD_NAME -c consul-dataplane -- wget -q -O- --timeout=2 http://localhost:19000/help 2>/dev/null || echo "Admin interface not accessible on port 19000"
+pod_http_get "$NAMESPACE" "$POD_NAME" consul-dataplane http://localhost:19000/help || echo "Admin interface not accessible on port 19000"
 echo ""
 
 # Step 6: Check consul-dataplane logs for metrics-related messages
@@ -110,7 +120,12 @@ echo ""
 echo "=========================================="
 echo "Step 8: Checking Metrics Merging Config"
 echo "=========================================="
-kubectl get pod -n $NAMESPACE $POD_NAME -o yaml | grep -A 5 "consul.hashicorp.com/enable-metrics-merging"
+MERGE_ANNOTATION=$(kubectl get pod -n $NAMESPACE $POD_NAME -o jsonpath='{.metadata.annotations.consul\.hashicorp\.com/enable-metrics-merging}' 2>/dev/null)
+if [ -n "$MERGE_ANNOTATION" ]; then
+    echo "consul.hashicorp.com/enable-metrics-merging=$MERGE_ANNOTATION"
+else
+    echo "No per-pod enable-metrics-merging annotation found (expected with defaultEnableMerging=false)."
+fi
 echo ""
 
 # Step 9: Test Prometheus scraping
@@ -125,9 +140,9 @@ echo "Pod IP: $POD_IP"
 
 # Try to scrape from Prometheus
 echo "Attempting to scrape metrics from Prometheus perspective..."
-PROM_POD=$(kubectl get pods -n observability -l app.kubernetes.io/name=prometheus -o jsonpath='{.items[0].metadata.name}')
+PROM_POD=$(kubectl get pods -n observability -l app.kubernetes.io/name=prometheus -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
 if [ -n "$PROM_POD" ]; then
-    kubectl exec -n observability $PROM_POD -- wget -q -O- --timeout=2 "http://${POD_IP}:20200/stats/prometheus" 2>/dev/null | head -10 || echo "Cannot scrape from Prometheus pod"
+    kubectl exec -n observability $PROM_POD -- sh -c "if command -v wget >/dev/null 2>&1; then wget -q -O- --timeout=2 'http://${POD_IP}:20200/metrics'; elif command -v curl >/dev/null 2>&1; then curl -sf --max-time 2 'http://${POD_IP}:20200/metrics'; else exit 127; fi" 2>/dev/null | head -10 || echo "Cannot scrape from Prometheus pod"
 else
     echo "Prometheus pod not found"
 fi
@@ -181,5 +196,7 @@ fi
 echo ""
 echo "For detailed troubleshooting, see: CONSUL_METRICS.md"
 echo ""
+
+exit 0
 
 # Made with Bob
