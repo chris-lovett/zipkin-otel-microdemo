@@ -19,6 +19,7 @@ Scope:
 3. [Logging](03-logging.md)
 4. [Distributed Tracing](04-distributed-tracing.md)
 5. [Operations and Troubleshooting](05-operations-and-troubleshooting.md)
+6. [Intentions and ACLs](06-intentions-and-acls.md)
 
 ## Implementation Assets
 
