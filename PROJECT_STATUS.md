@@ -43,9 +43,10 @@ The canonical observability path for this repo is:
 1. Deploy the app from [`charts/zipkin-otel-microdemo/`](charts/zipkin-otel-microdemo)
 2. Configure Consul and Prometheus/Grafana using [`deploy/observability/README.md`](deploy/observability/README.md)
 3. If using the Prometheus Operator / OpenShift monitoring stack, apply [`deploy/observability/podmonitor-consul-proxy-metrics.yaml`](deploy/observability/podmonitor-consul-proxy-metrics.yaml) and make sure the namespace selection matches the deployed app namespace
-4. Patch Grafana dashboards for Consul deep-link variables using:
+4. Patch and sync Grafana dashboards for Consul deep-link variables using:
    - [`deploy/observability/fix-grafana-dashboard.sh`](deploy/observability/fix-grafana-dashboard.sh)
    - [`deploy/observability/patch-dashboard-consul-vars.py`](deploy/observability/patch-dashboard-consul-vars.py)
+   - [`deploy/observability/sync-grafana-dashboards.sh`](deploy/observability/sync-grafana-dashboards.sh)
 5. Generate **mesh-aware** traffic using [`loadtest/mesh-load.sh`](loadtest/mesh-load.sh)
 
 ## Important Current Notes
@@ -56,7 +57,7 @@ Some historical documents in this repo describe a Prometheus sidecar or OpenShif
 
 ### 2. Dashboard source of truth comes from upstream workflow
 
-For Consul UI deep-link dashboards, this repo should stay aligned with the upstream workflow documented in [`../learn-consul-proxy-metrics/README.md`](../learn-consul-proxy-metrics/README.md), especially the downloaded upstream dashboard + local patching model.
+For Consul UI deep-link dashboards, this repo should stay aligned with the upstream workflow documented in [`external/learn-consul-proxy-metrics/README.md`](external/learn-consul-proxy-metrics/README.md), especially the downloaded upstream dashboard + local patching model.
 
 ### 3. Traffic must go through the mesh
 

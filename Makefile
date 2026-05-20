@@ -3,7 +3,7 @@ IMAGE_REGISTRY ?= quay.io/chris_lovett/zipkin-otel-microdemo
 IMAGE_TAG ?= 0.1.0
 PLATFORMS ?= linux/amd64,linux/arm64
 
-.PHONY: build-images push-images build-multiarch
+.PHONY: build-images push-images build-multiarch observability-sync-dashboards
 
 build-images:
 	@set -e; for svc in $(SERVICES); do \
@@ -27,3 +27,6 @@ build-multiarch:
 			--push \
 			.; \
 	done
+
+observability-sync-dashboards:
+	@./deploy/observability/sync-grafana-dashboards.sh

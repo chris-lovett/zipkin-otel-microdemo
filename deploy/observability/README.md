@@ -69,6 +69,10 @@ kubectl delete grafanadatasource prometheus-thanos -n observability --ignore-not
 chmod +x deploy/observability/fix-grafana-dashboard.sh
 ./deploy/observability/fix-grafana-dashboard.sh
 
+# Sync canonical dashboard JSON from deploy/observability/dashboards into ConfigMaps
+chmod +x deploy/observability/sync-grafana-dashboards.sh
+./deploy/observability/sync-grafana-dashboards.sh
+
 # Remove stale consul-mesh-metrics Service from topology
 ./deploy/observability/cleanup-mesh-metrics-svc.sh
 ```
