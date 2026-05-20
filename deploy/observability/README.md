@@ -77,7 +77,7 @@ chmod +x deploy/observability/sync-grafana-dashboards.sh
 ./deploy/observability/cleanup-mesh-metrics-svc.sh
 ```
 
-**Consul “Open dashboard”:** Use Helm-escaped templates in `consul-values-observability.yaml` so Consul substitutes `Service.Name` / `Service.Namespace` (not literal `{{Service.Name}}` in the browser). Run `./fix-grafana-dashboard.sh` so Grafana queries `consul_source_service` / `consul_source_namespace` — the same labels Consul uses for metrics.
+**Consul “Open dashboard”:** Use Helm-escaped templates in `consul-values-observability.yaml` so Consul substitutes `Service.Name` / `Service.Namespace` (not literal `{{Service.Name}}` in the browser). Run `./deploy/observability/fix-grafana-dashboard.sh` so Grafana queries `consul_source_service` / `consul_source_namespace` — the same labels Consul uses for metrics.
 
 ## 6. NetworkPolicy (if needed)
 
