@@ -59,6 +59,41 @@ make observability-sync-dashboards
 
 Root legacy docs remain for historical context only. For superseded implementation details and prior troubleshooting paths, use [`docs/archive/README.md`](docs/archive/README.md).
 
+### Consul UI Metrics Runbook (Procedure)
+
+Use this sequence when topology metrics are empty or Grafana deep links show no data:
+
+1. Run baseline verification:
+
+```bash
+make observability-verify
+```
+
+2. Generate in-mesh traffic so topology windows have live data:
+
+```bash
+cd loadtest
+./mesh-load.sh
+```
+
+3. Re-check troubleshooting diagnostics if metrics remain empty:
+
+```bash
+make observability-troubleshoot
+```
+
+4. Reconcile dashboard JSON and request GrafanaDashboard resync:
+
+```bash
+make observability-sync-dashboards
+```
+
+5. Validate Consul UI Topology and Open Dashboard behavior:
+- service edges show non-zero values during traffic
+- Open Dashboard links open with service/namespace scope already applied
+
+Conceptual model and pass/fail verification criteria are maintained in [`CONSUL_METRICS.md`](CONSUL_METRICS.md).
+
 ## Architecture
 
 ```

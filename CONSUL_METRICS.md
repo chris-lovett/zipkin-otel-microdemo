@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This document explains how Consul UI metrics fit into this demo and where to find the current implementation workflow.
+This document defines the Consul UI metrics model used in this repository and the verification criteria for a healthy setup.
 
-For the canonical deployment and dashboard setup, use [`deploy/observability/README.md`](deploy/observability/README.md).
+For deployment and operational runbooks, use [`README.md`](README.md) and [`deploy/observability/README.md`](deploy/observability/README.md).
 
 ## Metrics Path in This Demo
 
@@ -19,40 +19,46 @@ Consul UI
 
 Grafana dashboards linked from the Consul UI are patched locally so their variables and PromQL align with the labels emitted by this environment.
 
-## Canonical Files
+## Canonical Sources
 
 Use these files together:
 
-- [`deploy/observability/README.md`](deploy/observability/README.md) — current observability workflow
+- [`README.md`](README.md) — operator entrypoint and runbook commands
+- [`deploy/observability/README.md`](deploy/observability/README.md) — canonical observability workflow
 - [`deploy/observability/fix-grafana-dashboard.sh`](deploy/observability/fix-grafana-dashboard.sh) — dashboard refresh/update helper
 - [`deploy/observability/patch-dashboard-consul-vars.py`](deploy/observability/patch-dashboard-consul-vars.py) — rewrites dashboard variables and PromQL for Consul deep-link use
 - [`PROJECT_STATUS.md`](PROJECT_STATUS.md) — current documentation map
 - [`CONSUL_TOPOLOGY.md`](CONSUL_TOPOLOGY.md) — topology behavior and dependency model
 
-## What to Verify
+## Verification Criteria
 
-### 1. Consul UI metrics is enabled
+Use this section as pass/fail criteria. It intentionally avoids deployment procedure details.
 
-Your Consul values must enable UI metrics and point Consul at the Prometheus base URL.
+### 1. Consul UI metrics provider is configured
 
-### 2. Prometheus is scraping dataplane metrics
+Expected state:
+- provider is `prometheus`
+- base URL resolves to the in-cluster Prometheus service used by Consul
 
-Prometheus must be able to scrape Envoy / dataplane metrics from the demo workloads.
+### 2. Prometheus scrape coverage includes dataplane metrics
 
-### 3. Dashboard deep links match dashboard variables
+Expected state:
+- Consul dataplane/Envoy targets are up
+- namespace and label selectors match deployed workloads
+- series for Envoy traffic/latency are present
 
-Consul passes dashboard variables such as service and namespace. The Grafana dashboard must use matching variable names and label filters, which is why the local patching step exists.
+### 3. Dashboard deep-link variables are label-compatible
 
-### 4. Traffic is flowing through the mesh
+Expected state:
+- Consul template variables map to active dashboard variable names
+- PromQL label filters match this environment's metric schema
+- deep links open scoped panels for service/namespace without manual edits
 
-Without fresh in-mesh traffic, topology and service metrics will be sparse or empty.
+### 4. Topology metrics reflect live in-mesh traffic
 
-Use:
-
-```bash
-cd loadtest
-./mesh-load.sh
-```
+Expected state:
+- topology edges show non-zero request/traffic values during load
+- stale windows can return to zero after traffic stops (normal)
 
 ## Common Failure Modes
 
@@ -74,26 +80,14 @@ Usually one of:
 - panel PromQL built for a different metric label schema
 - resource panels joining against kube-state-metrics labels that do not match the current cluster data
 
-## Operational Guidance
+## Verification Outcome Matrix
 
-When debugging metrics for this repo, prefer this order:
-
-1. Confirm the app pods and dataplane sidecars are healthy
-2. Generate fresh mesh traffic with [`loadtest/mesh-load.sh`](loadtest/mesh-load.sh)
-3. Verify Prometheus contains the expected Envoy series
-4. Verify Consul UI metrics configuration
-5. Verify the Grafana dashboard patch workflow under [`deploy/observability/`](deploy/observability)
+- **Healthy:** topology metrics stream, Prometheus targets are up, and deep links open correctly scoped dashboards.
+- **Partially healthy:** Prometheus targets are up but topology/deep links are empty due to variable or label mismatch.
+- **Unhealthy:** missing scrape data, unreachable Prometheus base URL, or no in-mesh traffic in active windows.
 
 ## Historical Notes
 
 Older versions of this repo included multiple alternative implementation paths and one-off fixes. Those are historical only.
 
 If you need background on previous attempts, use [`docs/archive/README.md`](docs/archive/README.md), but do not treat archived documents as the current implementation guide.
-
-## Short Version
-
-If you want Consul UI metrics and linked Grafana dashboards to work in this repo:
-
-- follow [`deploy/observability/README.md`](deploy/observability/README.md)
-- use the dashboard patch scripts in [`deploy/observability/`](deploy/observability)
-- generate traffic with [`loadtest/mesh-load.sh`](loadtest/mesh-load.sh)
