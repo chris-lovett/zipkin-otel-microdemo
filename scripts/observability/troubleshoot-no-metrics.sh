@@ -142,7 +142,7 @@ else
     echo -e "${RED}Metrics merging is not configured properly!${NC}"
     echo ""
     echo "To fix this, run:"
-    echo "  ./fix-metrics-merging.sh"
+    echo "  ./scripts/observability/fix-metrics-merging.sh"
     echo ""
     read -p "Would you like to run the fix now? (y/n) " -n 1 -r
     echo

@@ -1,7 +1,7 @@
 # Zipkin OpenTelemetry Microdemo - Current Project Status
 
-**Last Updated**: 2026-05-15  
-**Status**: Active demo application with working Consul mesh deployment; observability documentation consolidated around the Prometheus + Grafana workflow in [`deploy/observability/README.md`](deploy/observability/README.md). Current live blocker: the cluster's Consul proxy metrics [`PodMonitor`](deploy/observability/podmonitor-consul-proxy-metrics.yaml) is targeting the wrong namespace, so recent Envoy metrics are not being scraped from `tracing-demo`.
+**Last Updated**: 2026-05-20  
+**Status**: Active demo application with observability documentation refactored into a full manual under [`docs/observability/README.md`](docs/observability/README.md). Prometheus + Grafana implementation assets remain under [`deploy/observability/README.md`](deploy/observability/README.md).
 
 ## What This Project Is
 
@@ -27,6 +27,7 @@
 Use these files as the current source of truth:
 
 - [`README.md`](README.md) — project overview, app deployment, load generation, and core references
+- [`docs/observability/README.md`](docs/observability/README.md) — full observability manual for setup, operation, and troubleshooting
 - [`DEMO_GUIDE.md`](DEMO_GUIDE.md) — step-by-step demo script for showcasing distributed tracing with Zipkin
 - [`deploy/observability/README.md`](deploy/observability/README.md) — canonical observability deployment and Grafana/Prometheus workflow
 - [`CONSUL_TOPOLOGY.md`](CONSUL_TOPOLOGY.md) — topology configuration and service dependency model
@@ -41,7 +42,7 @@ Historical troubleshooting and superseded implementation notes live under [`docs
 The canonical observability path for this repo is:
 
 1. Deploy the app from [`charts/zipkin-otel-microdemo/`](charts/zipkin-otel-microdemo)
-2. Configure Consul and Prometheus/Grafana using [`deploy/observability/README.md`](deploy/observability/README.md)
+2. Configure Consul and Prometheus/Grafana using [`docs/observability/README.md`](docs/observability/README.md) and [`deploy/observability/README.md`](deploy/observability/README.md)
 3. If using the Prometheus Operator / OpenShift monitoring stack, apply [`deploy/observability/podmonitor-consul-proxy-metrics.yaml`](deploy/observability/podmonitor-consul-proxy-metrics.yaml) and make sure the namespace selection matches the deployed app namespace
 4. Patch and sync Grafana dashboards for Consul deep-link variables using:
    - [`deploy/observability/fix-grafana-dashboard.sh`](deploy/observability/fix-grafana-dashboard.sh)
@@ -88,7 +89,7 @@ cd loadtest
 
 1. [`README.md`](README.md)
 2. [`DEMO_GUIDE.md`](DEMO_GUIDE.md) — **Start here for live demos**
-3. [`deploy/observability/README.md`](deploy/observability/README.md)
+3. [`docs/observability/README.md`](docs/observability/README.md)
 4. [`CONSUL_TOPOLOGY.md`](CONSUL_TOPOLOGY.md)
 5. [`CONSUL_METRICS.md`](CONSUL_METRICS.md)
 6. [`loadtest/README.md`](loadtest/README.md)

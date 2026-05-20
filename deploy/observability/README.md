@@ -1,5 +1,7 @@
 # Observability consolidation (Consul mesh metrics on port 20200)
 
+This document is the implementation companion for the operator manual in [`docs/observability/README.md`](../../docs/observability/README.md).
+
 Use Prometheus to scrape **Envoy/consul-dataplane** metrics on port **20200**. Do not use per-pod Prometheus sidecars for this demo.
 
 The repo now includes a canonical [`PodMonitor`](podmonitor-consul-proxy-metrics.yaml) for clusters that use the Prometheus Operator / OpenShift monitoring stack to scrape injected Consul dataplane pods in the `tracing-demo` namespace.
