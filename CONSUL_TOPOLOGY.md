@@ -179,6 +179,8 @@ After generating traffic, the topology view should begin to show:
 
 ## Troubleshooting
 
+Use the canonical observability troubleshooting flow in [`deploy/observability/README.md`](deploy/observability/README.md) and script entrypoints in [`scripts/observability/`](scripts/observability/). Keep the checks below only for topology-specific validation.
+
 ### Topology Graph is Empty
 
 **Problem:** Services appear in Consul but topology graph is empty.
@@ -186,7 +188,8 @@ After generating traffic, the topology view should begin to show:
 **Solution:**
 1. Verify pod annotations include `connect-service-upstreams`
 2. Restart pods to pick up new annotations: `kubectl rollout restart deployment -n tracing-demo`
-3. Wait 30-60 seconds for Consul to sync
+3. Run `make observability-verify`
+4. Wait 30-60 seconds for Consul to sync
 
 ### Services Not Showing Upstreams
 
@@ -204,6 +207,7 @@ If missing, the Helm chart may not have been upgraded properly. Re-run:
 ```bash
 helm upgrade zipkin-demo ./charts/zipkin-otel-microdemo --namespace tracing-demo
 kubectl rollout restart deployment -n tracing-demo
+make observability-verify
 ```
 
 ### Consul UI Shows "Topology Unavailable"

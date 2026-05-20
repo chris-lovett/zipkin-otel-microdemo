@@ -45,6 +45,20 @@ make observability-sync-dashboards
 
 Older markdown files in the repo root may describe previous implementation attempts and should be treated as historical context unless they align with the observability workflow above.
 
+## Observability Troubleshooting (Canonical)
+
+Use the OpenShift-first operator flow from [`deploy/observability/README.md`](deploy/observability/README.md) and the canonical scripts under [`scripts/observability/`](scripts/observability/).
+
+Quick runbook commands:
+
+```bash
+make observability-verify
+make observability-troubleshoot
+make observability-sync-dashboards
+```
+
+Root legacy docs remain for historical context only. For superseded implementation details and prior troubleshooting paths, use [`docs/archive/README.md`](docs/archive/README.md).
+
 ## Architecture
 
 ```
