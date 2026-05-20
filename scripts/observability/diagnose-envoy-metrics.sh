@@ -14,6 +14,7 @@ pod_http_get() {
 }
 
 METRICS_COUNT=0
+SCRAPE_OK=0
 
 echo "=========================================="
 echo "Envoy Metrics Comprehensive Diagnostics"
@@ -142,7 +143,13 @@ echo "Pod IP: $POD_IP"
 echo "Attempting to scrape metrics from Prometheus perspective..."
 PROM_POD=$(kubectl get pods -n observability -l app.kubernetes.io/name=prometheus -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
 if [ -n "$PROM_POD" ]; then
-    kubectl exec -n observability $PROM_POD -- sh -c "if command -v wget >/dev/null 2>&1; then wget -q -O- --timeout=2 'http://${POD_IP}:20200/metrics'; elif command -v curl >/dev/null 2>&1; then curl -sf --max-time 2 'http://${POD_IP}:20200/metrics'; else exit 127; fi" 2>/dev/null | head -10 || echo "Cannot scrape from Prometheus pod"
+    SCRAPE_SAMPLE=$(kubectl exec -n observability $PROM_POD -- sh -c "if command -v wget >/dev/null 2>&1; then wget -q -O- --timeout=2 'http://${POD_IP}:20200/metrics'; elif command -v curl >/dev/null 2>&1; then curl -sf --max-time 2 'http://${POD_IP}:20200/metrics'; else exit 127; fi" 2>/dev/null)
+    if [ -n "$SCRAPE_SAMPLE" ]; then
+        SCRAPE_OK=1
+        echo "$SCRAPE_SAMPLE" | head -10
+    else
+        echo "Cannot scrape from Prometheus pod"
+    fi
 else
     echo "Prometheus pod not found"
 fi
@@ -169,7 +176,7 @@ echo "Summary and Recommendations"
 echo "=========================================="
 echo ""
 
-if [ "$METRICS_COUNT" -gt "0" ]; then
+if [ "$METRICS_COUNT" -gt "0" ] || [ "$SCRAPE_OK" -eq "1" ]; then
     echo -e "${GREEN}✓${NC} Envoy metrics ARE being exposed ($METRICS_COUNT metrics found)"
     echo ""
     echo "Next steps:"

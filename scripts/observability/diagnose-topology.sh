@@ -1,7 +1,7 @@
 #!/bin/bash
 # Diagnostic script to troubleshoot Consul topology graph issues
 
-set -e
+set -u
 
 NAMESPACE="tracing-demo"
 CONSUL_NAMESPACE="consul"
@@ -50,31 +50,31 @@ CONSUL_POD=$(kubectl get pod -n $CONSUL_NAMESPACE -l component=server -o jsonpat
 echo "Consul server pod: $CONSUL_POD"
 echo ""
 echo "Registered services:"
-kubectl exec -it $CONSUL_POD -n $CONSUL_NAMESPACE -- consul catalog services
+kubectl exec $CONSUL_POD -n $CONSUL_NAMESPACE -- consul catalog services || echo "Could not list Consul services"
 echo ""
 
 # Check 5: Check service details in Consul
 echo "5. Checking frontend service details in Consul..."
 echo ""
-kubectl exec -it $CONSUL_POD -n $CONSUL_NAMESPACE -- consul catalog service frontend
+kubectl exec $CONSUL_POD -n $CONSUL_NAMESPACE -- consul catalog nodes -service frontend || echo "Could not query frontend service nodes"
 echo ""
 
 # Check 6: Check for service-defaults config
 echo "6. Checking for service-defaults configuration..."
 echo ""
-kubectl exec -it $CONSUL_POD -n $CONSUL_NAMESPACE -- consul config list -kind service-defaults || echo "No service-defaults found"
+kubectl exec $CONSUL_POD -n $CONSUL_NAMESPACE -- consul config list -kind service-defaults || echo "No service-defaults found"
 echo ""
 
 # Check 7: Check Consul version and edition
 echo "7. Checking Consul version and edition..."
 echo ""
-kubectl exec -it $CONSUL_POD -n $CONSUL_NAMESPACE -- consul version
+kubectl exec $CONSUL_POD -n $CONSUL_NAMESPACE -- consul version || echo "Could not retrieve Consul version"
 echo ""
 
 # Check 8: Check if UI config is enabled
 echo "8. Checking Consul UI configuration..."
 echo ""
-kubectl exec -it $CONSUL_POD -n $CONSUL_NAMESPACE -- consul info | grep -i ui || echo "UI info not found"
+kubectl exec $CONSUL_POD -n $CONSUL_NAMESPACE -- consul info | grep -i ui || echo "UI info not found"
 echo ""
 
 # Check 9: Look for any Consul Connect errors in logs
@@ -103,7 +103,7 @@ echo "   - Then: kubectl rollout restart deployment -n tracing-demo"
 echo ""
 echo "2. If using Consul Community Edition:"
 echo "   - Topology view requires Consul Enterprise"
-echo "   - Check: kubectl exec -it $CONSUL_POD -n consul -- consul version"
+echo "   - Check: kubectl exec $CONSUL_POD -n consul -- consul version"
 echo ""
 echo "3. If services not registered:"
 echo "   - Check Consul Connect injection is working"
