@@ -3,7 +3,7 @@ IMAGE_REGISTRY ?= quay.io/chris_lovett/zipkin-otel-microdemo
 IMAGE_TAG ?= 0.1.0
 PLATFORMS ?= linux/amd64,linux/arm64
 
-.PHONY: build-images push-images build-multiarch
+.PHONY: build-images push-images build-multiarch observability-sync-dashboards observability-verify observability-troubleshoot
 
 build-images:
 	@set -e; for svc in $(SERVICES); do \
@@ -27,3 +27,15 @@ build-multiarch:
 			--push \
 			.; \
 	done
+
+observability-sync-dashboards:
+	@./deploy/observability/sync-grafana-dashboards.sh
+
+observability-verify:
+	@./scripts/observability/check-consul-metrics.sh
+	@./scripts/observability/diagnose-consul-metrics.sh
+	@./scripts/observability/diagnose-envoy-metrics.sh
+	@./scripts/observability/diagnose-topology.sh
+
+observability-troubleshoot:
+	@./scripts/observability/troubleshoot-no-metrics.sh

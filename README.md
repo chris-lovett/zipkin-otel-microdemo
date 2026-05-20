@@ -11,6 +11,7 @@ A field-demo quality Go microservices application for demonstrating distributed 
 - **[CONSUL_INTENTIONS.md](CONSUL_INTENTIONS.md)** - Service-to-service authorization policies
 - **[CONSUL_METRICS.md](CONSUL_METRICS.md)** - Consul UI metrics concepts and verification guidance
 - **[service-defaults.yaml](service-defaults.yaml)** - Consul ServiceDefaults for HTTP protocol detection in topology metrics
+- **[scripts/observability/](scripts/observability/)** - Canonical diagnose/fix/troubleshoot scripts (root scripts are compatibility wrappers)
 - **[loadtest/README.md](loadtest/README.md)** - Load testing tools and scenarios
 - **[docs/archive/README.md](docs/archive/README.md)** - Historical troubleshooting and superseded implementation notes
 
@@ -20,11 +21,78 @@ This repository’s current observability source of truth is [`deploy/observabil
 
 Use that workflow for:
 - standalone Prometheus in `observability`
+- optional Prometheus Operator path via PodMonitor in OpenShift
 - Grafana datasource and dashboard wiring
 - Consul UI deep-link dashboard fixes
 - validation of mesh metrics scrape behavior
 
+## Observability Operator Flow (OpenShift-first)
+
+Use one canonical Prometheus path at a time:
+
+1. Primary: standalone Prometheus (`prometheus-server`) configured via `deploy/observability/prometheus-values.yaml`
+2. Optional: Prometheus Operator/OpenShift monitoring using `deploy/observability/podmonitor-consul-proxy-metrics.yaml`
+
+Do not mix old sidecar-based scrape patterns with the canonical flow above.
+
+Operator commands:
+
+```bash
+make observability-verify
+make observability-troubleshoot
+make observability-sync-dashboards
+```
+
 Older markdown files in the repo root may describe previous implementation attempts and should be treated as historical context unless they align with the observability workflow above.
+
+## Observability Troubleshooting (Canonical)
+
+Use the OpenShift-first operator flow from [`deploy/observability/README.md`](deploy/observability/README.md) and the canonical scripts under [`scripts/observability/`](scripts/observability/).
+
+Quick runbook commands:
+
+```bash
+make observability-verify
+make observability-troubleshoot
+make observability-sync-dashboards
+```
+
+Root legacy docs remain for historical context only. For superseded implementation details and prior troubleshooting paths, use [`docs/archive/README.md`](docs/archive/README.md).
+
+### Consul UI Metrics Runbook (Procedure)
+
+Use this sequence when topology metrics are empty or Grafana deep links show no data:
+
+1. Run baseline verification:
+
+```bash
+make observability-verify
+```
+
+2. Generate in-mesh traffic so topology windows have live data:
+
+```bash
+cd loadtest
+./mesh-load.sh
+```
+
+3. Re-check troubleshooting diagnostics if metrics remain empty:
+
+```bash
+make observability-troubleshoot
+```
+
+4. Reconcile dashboard JSON and request GrafanaDashboard resync:
+
+```bash
+make observability-sync-dashboards
+```
+
+5. Validate Consul UI Topology and Open Dashboard behavior:
+- service edges show non-zero values during traffic
+- Open Dashboard links open with service/namespace scope already applied
+
+Conceptual model and pass/fail verification criteria are maintained in [`CONSUL_METRICS.md`](CONSUL_METRICS.md).
 
 ## Architecture
 
