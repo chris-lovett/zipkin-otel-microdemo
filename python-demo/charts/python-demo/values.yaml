@@ -1,0 +1,36 @@
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: py-zipkin-demo
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+zipkin:
+  image:
+    repository: openzipkin/zipkin
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 9411
+  resources: {}
+
+services:
+  serviceA:
+    port: 8091
+    service:
+      type: ClusterIP
+    resources: {}
+  serviceB:
+    port: 8092
+    service:
+      type: ClusterIP
+    resources: {}
+  serviceC:
+    port: 8093
+    service:
+      type: ClusterIP
+    resources: {}

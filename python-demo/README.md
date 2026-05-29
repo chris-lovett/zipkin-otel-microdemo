@@ -22,24 +22,50 @@ Each service creates a span and propagates [B3 trace-context headers](https://gi
 | `service_b.py` | Middle service; continues the trace as a child span |
 | `service_c.py` | End service; continues the trace as a grandchild span |
 | `requirements.txt` | Python dependencies (`Flask`, `requests`, `py-zipkin`) |
-| `Dockerfile` | Single image used by all three Compose services |
-| `docker-compose.yml` | Starts Zipkin + the three services |
+| `Dockerfile` | Single image used by all three Python services |
+| `charts/python-demo/` | Helm chart that deploys Zipkin + the three services on Kubernetes |
 
 ## Quick start
 
-### 1. Start everything with Docker Compose
+### 1. Build the application image
 
 ```bash
 cd python-demo
-docker compose up --build
+docker build -t py-zipkin-demo:latest .
 ```
 
-Docker Compose uses [BuildKit](https://docs.docker.com/build/buildkit/) automatically (Docker 23+).  
-The `Dockerfile` and `docker-compose.yml` declare `platforms: [linux/amd64, linux/arm64]`, so the image is built for your host architecture by default and is compatible with both x86-64 and Apple Silicon / ARM servers.
+For local clusters, make sure the image is available to the cluster runtime:
 
-All four containers (Zipkin + 3 services) will start on the `py-demo-network` bridge.
+```bash
+# kind example
+kind load docker-image py-zipkin-demo:latest
 
-### 2. Trigger the demo trace
+# or minikube example
+minikube image load py-zipkin-demo:latest
+```
+
+### 2. Install the Helm chart
+
+```bash
+helm upgrade --install python-demo charts/python-demo
+```
+
+This installs four Deployments and four Services:
+
+- Zipkin (`python-demo-zipkin`)
+- service-a (`python-demo-service-a`)
+- service-b (`python-demo-service-b`)
+- service-c (`python-demo-service-c`)
+
+### 3. Port-forward service-a and trigger a trace
+
+In one terminal:
+
+```bash
+kubectl port-forward svc/python-demo-service-a 8091:8091
+```
+
+In another terminal:
 
 ```bash
 curl http://localhost:8091/demo
@@ -61,7 +87,13 @@ Expected JSON response:
 }
 ```
 
-### 3. Inspect the trace in Zipkin
+### 4. Inspect traces in Zipkin
+
+In another terminal:
+
+```bash
+kubectl port-forward svc/python-demo-zipkin 9411:9411
+```
 
 Open [http://localhost:9411](http://localhost:9411) in your browser.
 
@@ -74,11 +106,16 @@ Open [http://localhost:9411](http://localhost:9411) in your browser.
 
 ## Health endpoints
 
-Each service exposes a `/health` endpoint:
+Each service exposes a `/health` endpoint. Port-forward each service before curl:
 
 ```bash
+kubectl port-forward svc/python-demo-service-a 8091:8091
 curl http://localhost:8091/health   # service-a
+
+kubectl port-forward svc/python-demo-service-b 8092:8092
 curl http://localhost:8092/health   # service-b
+
+kubectl port-forward svc/python-demo-service-c 8093:8093
 curl http://localhost:8093/health   # service-c
 ```
 
@@ -90,9 +127,9 @@ All services read configuration from environment variables:
 |---|---|---|
 | `SERVICE_NAME` | `service-a/b/c` | Name reported to Zipkin |
 | `PORT` | `8091 / 8092 / 8093` | Listening port |
-| `ZIPKIN_URL` | `http://localhost:9411/api/v2/spans` | Zipkin collector endpoint |
-| `SERVICE_B_URL` | `http://localhost:8092` | service-a → service-b URL |
-| `SERVICE_C_URL` | `http://localhost:8093` | service-b → service-c URL |
+| `ZIPKIN_URL` | `http://python-demo-zipkin:9411/api/v2/spans` | Zipkin collector endpoint |
+| `SERVICE_B_URL` | `http://python-demo-service-b:8092` | service-a → service-b URL |
+| `SERVICE_C_URL` | `http://python-demo-service-c:8093` | service-b → service-c URL |
 
 ## Running without Docker
 
@@ -115,17 +152,28 @@ You will also need a locally running Zipkin instance, e.g.:
 docker run -d -p 9411:9411 openzipkin/zipkin
 ```
 
-## Multi-architecture builds
+## Helm chart configuration
 
-The `Dockerfile` and `docker-compose.yml` are configured for multi-architecture support (`linux/amd64` and `linux/arm64`).
+The chart is in `charts/python-demo` and can be customized with `values.yaml` overrides.
 
-### Local development (single platform)
+Common overrides:
 
-`docker compose up --build` automatically builds for the host machine's native architecture. No extra steps are needed on either Intel/AMD or Apple Silicon machines.
+- `image.repository`
+- `image.tag`
+- `zipkin.service.type`
+- `services.serviceA|serviceB|serviceC.service.type`
 
-### Building for both platforms simultaneously (e.g. for CI or a registry push)
+Example install using an image from a registry:
 
-Use `docker buildx` with a multi-platform builder:
+```bash
+helm upgrade --install python-demo charts/python-demo \
+  --set image.repository=ghcr.io/acme/py-zipkin-demo \
+  --set image.tag=v1.0.0
+```
+
+## Multi-architecture image builds
+
+The `Dockerfile` supports both `linux/amd64` and `linux/arm64`. Build and push a multi-arch image with `docker buildx`:
 
 ```bash
 # One-time setup: create and activate a multi-platform builder
@@ -136,17 +184,10 @@ docker buildx build \
   --platform linux/amd64,linux/arm64 \
   --tag <your-registry>/py-zipkin-demo:latest \
   --push \
-  python-demo/
+  .
 ```
 
-Or use `docker buildx bake` with the Compose file:
-
-```bash
-cd python-demo
-docker buildx bake --push
-```
-
-> **Note:** pushing to a registry is required when building for multiple platforms simultaneously, because a local Docker daemon can only store one platform image per tag at a time. For local development on your own machine `docker compose up --build` is sufficient.
+> **Note:** pushing to a registry is required when building for multiple platforms simultaneously, because a local Docker daemon can only store one platform image per tag at a time.
 
 ## How B3 propagation works
 

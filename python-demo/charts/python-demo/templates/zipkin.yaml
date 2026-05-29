@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "python-demo.fullname" . }}-zipkin
+  labels:
+    {{- include "python-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: zipkin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "python-demo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: zipkin
+  template:
+    metadata:
+      labels:
+        {{- include "python-demo.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: zipkin
+    spec:
+      containers:
+        - name: zipkin
+          image: "{{ .Values.zipkin.image.repository }}:{{ .Values.zipkin.image.tag }}"
+          imagePullPolicy: {{ .Values.zipkin.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.zipkin.service.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.zipkin.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "python-demo.fullname" . }}-zipkin
+  labels:
+    {{- include "python-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: zipkin
+spec:
+  type: {{ .Values.zipkin.service.type }}
+  selector:
+    {{- include "python-demo.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: zipkin
+  ports:
+    - name: http
+      port: {{ .Values.zipkin.service.port }}
+      targetPort: http
+      protocol: TCP

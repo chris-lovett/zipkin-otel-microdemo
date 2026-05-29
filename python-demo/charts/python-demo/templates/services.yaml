@@ -1,0 +1,210 @@
+{{- $fullname := include "python-demo.fullname" . -}}
+{{- $selectorLabels := include "python-demo.selectorLabels" . -}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-service-c
+  labels:
+    {{- include "python-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: service-c
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- $selectorLabels | nindent 6 }}
+      app.kubernetes.io/component: service-c
+  template:
+    metadata:
+      labels:
+        {{- $selectorLabels | nindent 8 }}
+        app.kubernetes.io/component: service-c
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: service-c
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "service_c.py"]
+          env:
+            - name: SERVICE_NAME
+              value: service-c
+            - name: PORT
+              value: {{ .Values.services.serviceC.port | quote }}
+            - name: ZIPKIN_URL
+              value: http://{{ $fullname }}-zipkin:{{ .Values.zipkin.service.port }}/api/v2/spans
+          ports:
+            - name: http
+              containerPort: {{ .Values.services.serviceC.port }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            {{- toYaml .Values.services.serviceC.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-service-c
+  labels:
+    {{- include "python-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: service-c
+spec:
+  type: {{ .Values.services.serviceC.service.type }}
+  selector:
+    {{- $selectorLabels | nindent 4 }}
+    app.kubernetes.io/component: service-c
+  ports:
+    - name: http
+      port: {{ .Values.services.serviceC.port }}
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-service-b
+  labels:
+    {{- include "python-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: service-b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- $selectorLabels | nindent 6 }}
+      app.kubernetes.io/component: service-b
+  template:
+    metadata:
+      labels:
+        {{- $selectorLabels | nindent 8 }}
+        app.kubernetes.io/component: service-b
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: service-b
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "service_b.py"]
+          env:
+            - name: SERVICE_NAME
+              value: service-b
+            - name: PORT
+              value: {{ .Values.services.serviceB.port | quote }}
+            - name: ZIPKIN_URL
+              value: http://{{ $fullname }}-zipkin:{{ .Values.zipkin.service.port }}/api/v2/spans
+            - name: SERVICE_C_URL
+              value: http://{{ $fullname }}-service-c:{{ .Values.services.serviceC.port }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.services.serviceB.port }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            {{- toYaml .Values.services.serviceB.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-service-b
+  labels:
+    {{- include "python-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: service-b
+spec:
+  type: {{ .Values.services.serviceB.service.type }}
+  selector:
+    {{- $selectorLabels | nindent 4 }}
+    app.kubernetes.io/component: service-b
+  ports:
+    - name: http
+      port: {{ .Values.services.serviceB.port }}
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-service-a
+  labels:
+    {{- include "python-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: service-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- $selectorLabels | nindent 6 }}
+      app.kubernetes.io/component: service-a
+  template:
+    metadata:
+      labels:
+        {{- $selectorLabels | nindent 8 }}
+        app.kubernetes.io/component: service-a
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: service-a
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "service_a.py"]
+          env:
+            - name: SERVICE_NAME
+              value: service-a
+            - name: PORT
+              value: {{ .Values.services.serviceA.port | quote }}
+            - name: ZIPKIN_URL
+              value: http://{{ $fullname }}-zipkin:{{ .Values.zipkin.service.port }}/api/v2/spans
+            - name: SERVICE_B_URL
+              value: http://{{ $fullname }}-service-b:{{ .Values.services.serviceB.port }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.services.serviceA.port }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            {{- toYaml .Values.services.serviceA.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-service-a
+  labels:
+    {{- include "python-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: service-a
+spec:
+  type: {{ .Values.services.serviceA.service.type }}
+  selector:
+    {{- $selectorLabels | nindent 4 }}
+    app.kubernetes.io/component: service-a
+  ports:
+    - name: http
+      port: {{ .Values.services.serviceA.port }}
+      targetPort: http
+      protocol: TCP
