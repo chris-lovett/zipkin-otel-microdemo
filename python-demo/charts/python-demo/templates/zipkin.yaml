@@ -16,7 +16,17 @@ spec:
       labels:
         {{- include "python-demo.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: zipkin
+      annotations:
+        {{- if .Values.consul.connectInject }}
+        consul.hashicorp.com/connect-inject: "true"
+        consul.hashicorp.com/connect-service: {{ printf "%s-zipkin" (include "python-demo.fullname" .) | quote }}
+        consul.hashicorp.com/connect-service-port: "http"
+        {{- end }}
+        {{- if .Values.consul.transparentProxy }}
+        consul.hashicorp.com/transparent-proxy: "true"
+        {{- end }}
     spec:
+      serviceAccountName: {{ if .Values.serviceAccount.create }}{{ include "python-demo.fullname" . }}-zipkin{{ else }}{{ default "default" .Values.serviceAccount.name }}{{ end }}
       containers:
         - name: zipkin
           image: "{{ .Values.zipkin.image.repository }}:{{ .Values.zipkin.image.tag }}"

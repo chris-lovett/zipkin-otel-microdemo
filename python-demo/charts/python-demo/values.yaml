@@ -8,6 +8,14 @@ image:
 
 imagePullSecrets: []
 
+consul:
+  connectInject: true
+  transparentProxy: true
+
+serviceAccount:
+  create: true
+  name: ""
+
 zipkin:
   image:
     repository: openzipkin/zipkin

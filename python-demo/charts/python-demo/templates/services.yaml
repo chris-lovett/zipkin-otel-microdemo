@@ -19,7 +19,17 @@ spec:
       labels:
         {{- $selectorLabels | nindent 8 }}
         app.kubernetes.io/component: service-c
+      annotations:
+        {{- if .Values.consul.connectInject }}
+        consul.hashicorp.com/connect-inject: "true"
+        consul.hashicorp.com/connect-service: {{ printf "%s-service-c" $fullname | quote }}
+        consul.hashicorp.com/connect-service-port: "http"
+        {{- end }}
+        {{- if .Values.consul.transparentProxy }}
+        consul.hashicorp.com/transparent-proxy: "true"
+        {{- end }}
     spec:
+      serviceAccountName: {{ if .Values.serviceAccount.create }}{{ $fullname }}-service-c{{ else }}{{ default "default" .Values.serviceAccount.name }}{{ end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -87,7 +97,18 @@ spec:
       labels:
         {{- $selectorLabels | nindent 8 }}
         app.kubernetes.io/component: service-b
+      annotations:
+        {{- if .Values.consul.connectInject }}
+        consul.hashicorp.com/connect-inject: "true"
+        consul.hashicorp.com/connect-service: {{ printf "%s-service-b" $fullname | quote }}
+        consul.hashicorp.com/connect-service-port: "http"
+        consul.hashicorp.com/connect-service-upstreams: {{ printf "%s-service-c:%v" $fullname .Values.services.serviceC.port | quote }}
+        {{- end }}
+        {{- if .Values.consul.transparentProxy }}
+        consul.hashicorp.com/transparent-proxy: "true"
+        {{- end }}
     spec:
+      serviceAccountName: {{ if .Values.serviceAccount.create }}{{ $fullname }}-service-b{{ else }}{{ default "default" .Values.serviceAccount.name }}{{ end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -157,7 +178,18 @@ spec:
       labels:
         {{- $selectorLabels | nindent 8 }}
         app.kubernetes.io/component: service-a
+      annotations:
+        {{- if .Values.consul.connectInject }}
+        consul.hashicorp.com/connect-inject: "true"
+        consul.hashicorp.com/connect-service: {{ printf "%s-service-a" $fullname | quote }}
+        consul.hashicorp.com/connect-service-port: "http"
+        consul.hashicorp.com/connect-service-upstreams: {{ printf "%s-service-b:%v" $fullname .Values.services.serviceB.port | quote }}
+        {{- end }}
+        {{- if .Values.consul.transparentProxy }}
+        consul.hashicorp.com/transparent-proxy: "true"
+        {{- end }}
     spec:
+      serviceAccountName: {{ if .Values.serviceAccount.create }}{{ $fullname }}-service-a{{ else }}{{ default "default" .Values.serviceAccount.name }}{{ end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
