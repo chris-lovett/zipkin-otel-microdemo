@@ -1,0 +1,74 @@
+# Isolated network for the Python demo so it does not collide with the Go demo.
+networks:
+  py-demo-network:
+    driver: bridge
+
+services:
+  # ── Zipkin collector ──────────────────────────────────────────────────────
+  zipkin:
+    image: openzipkin/zipkin:latest
+    ports:
+      - "9411:9411"
+    networks:
+      - py-demo-network
+
+  # ── Service C (end of chain, no downstream) ───────────────────────────────
+  service-c:
+    build:
+      context: .
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    command: python service_c.py
+    environment:
+      SERVICE_NAME: service-c
+      PORT: "8093"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+    ports:
+      - "8093:8093"
+    depends_on:
+      - zipkin
+    networks:
+      - py-demo-network
+
+  # ── Service B (calls service-c) ───────────────────────────────────────────
+  service-b:
+    build:
+      context: .
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    command: python service_b.py
+    environment:
+      SERVICE_NAME: service-b
+      PORT: "8092"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      SERVICE_C_URL: http://service-c:8093
+    ports:
+      - "8092:8092"
+    depends_on:
+      - zipkin
+      - service-c
+    networks:
+      - py-demo-network
+
+  # ── Service A (entry point, calls service-b) ──────────────────────────────
+  service-a:
+    build:
+      context: .
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    command: python service_a.py
+    environment:
+      SERVICE_NAME: service-a
+      PORT: "8091"
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      SERVICE_B_URL: http://service-b:8092
+    ports:
+      - "8091:8091"
+    depends_on:
+      - zipkin
+      - service-b
+    networks:
+      - py-demo-network
